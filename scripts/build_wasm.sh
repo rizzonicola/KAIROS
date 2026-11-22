@@ -87,7 +87,7 @@ smoke_test() {
   local dir="$1" js="$2"
   (
     cd "${dir}"
-    { printf 'uci\nisready\nposition startpos\ngo depth 6\n'; sleep 5; printf 'quit\n'; } \
+    { printf 'uci\nisready\nposition startpos\ngo movetime 1500\n'; sleep 5; printf 'quit\n'; } \
       | timeout 90s node "${js}" > engine.out 2> engine.err || true
     grep -q '^bestmove ' engine.out || {
       cat engine.err >&2
