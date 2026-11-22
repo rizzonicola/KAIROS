@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build pinned Stockfish 19
+        run: ./scripts/build_stockfish19.sh
+
+      - name: Syntax checks
+        run: |
+          bash -n scripts/build_stockfish19.sh scripts/build_wasm.sh run_kairos.sh
+          python3 -m py_compile kairos/*.py tests/*.py
+
+      - name: Tests
+        run: python3 -m unittest discover -s tests -v

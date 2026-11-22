@@ -1,0 +1,139 @@
+name: Release artifacts
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to attach artifacts to
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+  REPO_URL: https://github.com/rizzonicola/KAIROS
+
+jobs:
+  native:
+    name: Native Linux x86-64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build pinned Stockfish 19
+        run: ./scripts/build_stockfish19.sh
+
+      - name: Tests
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          pkg="kairos-${TAG}-linux-x86_64"
+          mkdir -p "dist/${pkg}/build"
+          cp -r kairos tests scripts docs "dist/${pkg}/"
+          cp run_kairos.sh README.md LICENSE THIRD_PARTY.md KAIROS_SPECIFICATION.md "dist/${pkg}/"
+          cp build/stockfish19 build/stockfish19-build.txt build/stockfish19-nnue.sha256 "dist/${pkg}/build/"
+          cat > "dist/${pkg}/SOURCE.txt" <<EOF
+          KAIROS ${TAG}
+          ${REPO_URL}
+          Stockfish 19: sf_19 / edb0d9db6731067ec50ce619ff372b463bc4dd5d
+          Original network: nn-1a298aa575a0.nnue
+          EOF
+          tar -C dist -czf "dist/${pkg}.tar.gz" "${pkg}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  wasm:
+    name: WebAssembly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Emscripten
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "${RUNNER_TEMP}/emsdk"
+          cd "${RUNNER_TEMP}/emsdk"
+          if ./emsdk install 6.0.9 && ./emsdk activate 6.0.9; then
+            echo "Using Emscripten 6.0.9"
+          else
+            echo "Emscripten 6.0.9 unavailable; using latest"
+            ./emsdk install latest
+            ./emsdk activate latest
+          fi
+
+      - name: Build official Stockfish 19 WASM
+        run: |
+          set -euo pipefail
+          source "${RUNNER_TEMP}/emsdk/emsdk_env.sh"
+          ./scripts/build_wasm.sh official wasm32
+          ./scripts/build_wasm.sh official wasm32-relaxed-simd
+
+      - name: Build Stockfish 19 Lite WASM
+        run: |
+          set -euo pipefail
+          source "${RUNNER_TEMP}/emsdk/emsdk_env.sh"
+          ./scripts/build_wasm.sh lite
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          for dir in dist/stockfish-19-*; do
+            [ -d "${dir}" ] || continue
+            tar -C dist -czf "${dir}.tar.gz" "$(basename "${dir}")"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wasm
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: Attach artifacts to release
+    needs: [native, wasm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum -- *.tar.gz | sort -k2 > SHA256SUMS
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload "${TAG}" dist/*.tar.gz dist/SHA256SUMS \
+            --repo "${GITHUB_REPOSITORY}" --clobber

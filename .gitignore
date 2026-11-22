@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+*.log
+/build/
+/third_party/Stockfish/
+/third_party/stockfish.js/
+/dist/
