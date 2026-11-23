@@ -8,6 +8,14 @@ import {
   type PositionStats,
 } from "../src/chess-features";
 import {
+  fiftyMoveBlocked,
+  isSaturated,
+  parseInfo,
+  repetitionBlocked,
+  resultBand,
+  supportedPersonalitySearch,
+} from "../src/controller";
+import {
   POSTURES,
   WEIGHTS,
   PostureController,
@@ -167,6 +175,74 @@ describe("Python parity vectors", () => {
         varietyTemperature(item.variety, item.posture, item.forced),
         item.temperature,
       );
+    }
+  });
+
+  it("matches parseInfo vectors", () => {
+    const { cases } = load<{
+      cases: {
+        line: string;
+        candidate: {
+          multipv: number;
+          depth: number;
+          move: string;
+          scoreKind: string;
+          scoreValue: number;
+          wdl: [number, number, number];
+          pv: string[];
+        } | null;
+      }[];
+    }>("parse_info.json");
+    for (const item of cases) {
+      expect(parseInfo(item.line), item.line).toEqual(item.candidate);
+    }
+  });
+
+  it("matches the guard vectors", () => {
+    const vectors = load<{
+      resultBand: { expected: number; band: number }[];
+      saturation: { expected: number; saturated: boolean }[];
+      repetition: {
+        fen: string;
+        move: string;
+        counts: Record<string, number>;
+        baselineExpected: number;
+        blocked: boolean;
+      }[];
+      fiftyMove: { fen: string; move: string; baselineExpected: number; blocked: boolean }[];
+      supported: {
+        line: string;
+        supported: boolean;
+        kind: string;
+        amount: number;
+        reason: string;
+      }[];
+    }>("guards.json");
+    for (const item of vectors.resultBand) {
+      expect(resultBand(item.expected), String(item.expected)).toBe(item.band);
+    }
+    for (const item of vectors.saturation) {
+      expect(isSaturated(item.expected), String(item.expected)).toBe(item.saturated);
+    }
+    for (const item of vectors.repetition) {
+      expect(
+        repetitionBlocked(Board.fromFen(item.fen), item.move, item.counts, item.baselineExpected),
+        `${item.fen} ${item.move}`,
+      ).toBe(item.blocked);
+    }
+    for (const item of vectors.fiftyMove) {
+      expect(
+        fiftyMoveBlocked(Board.fromFen(item.fen), item.move, item.baselineExpected),
+        `${item.fen} ${item.move}`,
+      ).toBe(item.blocked);
+    }
+    for (const item of vectors.supported) {
+      expect(supportedPersonalitySearch(item.line), item.line).toEqual({
+        supported: item.supported,
+        kind: item.kind,
+        amount: item.amount,
+        reason: item.reason,
+      });
     }
   });
 
