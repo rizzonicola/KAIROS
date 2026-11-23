@@ -107,6 +107,30 @@ class ProtocolTests(unittest.TestCase):
         self.assertIn("setoption name Threads value 1", log)
         self.assertIn("setoption name UCI_ShowWDL value true", log)
 
+    def test_handshake_advertises_personality_options(self):
+        lines = self.client.handshake()
+        self.assertTrue(any("KairosPosture" in line for line in lines))
+        self.assertTrue(any("KairosVariety" in line for line in lines))
+
+    def test_forced_fog_posture_reranks(self):
+        self.client.handshake()
+        self.client.send("setoption name KairosPosture value Fog")
+        self.client.send("setoption name KairosVerbose value true")
+        self.client.send("position fen 4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1")
+        self.client.send("go depth 4")
+        lines = self.client.read_until(lambda x: x.startswith("bestmove "))
+        self.assertTrue(any(x.startswith("info string kairos posture=FOG") for x in lines))
+        self.assertEqual(lines[-1], "bestmove c2c4")
+
+    def test_forced_distill_posture_keeps_stockfish_best(self):
+        self.client.handshake()
+        self.client.send("setoption name KairosPosture value Distill")
+        self.client.send("position fen 4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1")
+        self.client.send("go depth 4")
+        lines = self.client.read_until(lambda x: x.startswith("bestmove "))
+        self.assertEqual(lines[-1], "bestmove e1d2")
+        self.assertNotIn("searchmoves", self.client.mock_log.read_text(encoding="utf-8"))
+
     def test_non_stockfish_backend_is_refused_by_default(self):
         self.client.close()
         self.client = UCIClient(allow_unverified=False)

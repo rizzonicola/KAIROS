@@ -4,7 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "kairos"))
-from chess_features import Board, board_from_position_command, candidate_features  # noqa: E402
+from chess_features import Board, board_from_position_command, candidate_features, position_stats  # noqa: E402
 
 
 class ChessFeatureTests(unittest.TestCase):
@@ -65,6 +65,55 @@ class ChessFeatureTests(unittest.TestCase):
         self.assertTrue(board.move_threatens_enemy_queen("a1a7"))
         self.assertEqual(candidate_features(board, "a1a7")["F_I"], 1.0)
         self.assertEqual(candidate_features(board, "a1b1")["F_I"], 0.0)
+
+    def test_reserve_flexibility_and_coordination(self):
+        reserve_board = Board.from_fen("4k3/8/8/8/3N4/8/8/4K3 w - - 0 1")
+        self.assertEqual(reserve_board.reserve_count(True), 1)
+        self.assertGreater(reserve_board.safe_mobility(True), 0)
+        rooks = Board.from_fen("R6R/8/8/8/8/8/8/4K3 w - - 0 1")
+        mutual, king_attacks, batteries = rooks.coordination(True)
+        self.assertGreaterEqual(mutual, 2)
+        self.assertEqual(king_attacks, 0)
+        self.assertEqual(batteries, 0)
+
+    def test_pawn_break_and_king_margin(self):
+        board = Board.from_fen("4k3/8/8/3p4/8/8/2P5/4K3 w - - 0 1")
+        self.assertEqual(board.pawn_breaks(True), 1)
+        defended = Board.from_fen("4k3/8/8/8/8/8/4R3/4K3 w - - 0 1")
+        self.assertEqual(defended.king_margin(True), (2, 0))
+
+    def test_phase_and_material_balance(self):
+        start = Board.from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        self.assertAlmostEqual(start.phase(), 1.0)
+        self.assertEqual(start.material_balance(), 0)
+        pawn_endgame = Board.from_fen("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1")
+        self.assertAlmostEqual(pawn_endgame.phase(), 0.0)
+        self.assertEqual(pawn_endgame.material_balance(), 1)
+
+    def test_null_move_fen_and_illegal_check(self):
+        start = Board.from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        null_fen = start.null_move_fen()
+        self.assertIsNotNone(null_fen)
+        self.assertEqual(null_fen.split()[1], "b")
+        self.assertEqual(null_fen.split()[3], "-")
+        in_check = Board.from_fen("4k3/8/8/8/8/8/4r3/4K3 w - - 0 1")
+        self.assertIsNone(in_check.null_move_fen())
+
+    def test_probe_features_are_explicit_not_inferred(self):
+        board = Board.from_fen("4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1")
+        neutral = candidate_features(board, "c2c4")
+        self.assertEqual(neutral["F_N"], 0.0)
+        self.assertEqual(neutral["F_P"], 0.0)
+        probed = candidate_features(board, "c2c4", {"F_N": 0.5, "F_P": -0.25})
+        self.assertAlmostEqual(probed["F_N"], 0.5)
+        self.assertAlmostEqual(probed["F_P"], -0.25)
+
+    def test_position_stats_exposes_posture_evidence(self):
+        board = Board.from_fen("4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1")
+        stats = position_stats(board)
+        self.assertEqual(stats["tension"], 1.0)
+        self.assertGreaterEqual(stats["own_king_defenders"], 1.0)
+        self.assertEqual(stats["material_balance"], 1.0)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 import logging
 import os
 import queue
+import random
 import re
 import shlex
 import subprocess
@@ -15,7 +16,8 @@ import sys
 import threading
 from typing import Optional
 
-from chess_features import board_from_position_command, candidate_features
+from chess_features import board_from_position_command, candidate_features, position_stats
+from postures import POSTURES, PostureController, dominant, one_hot, weighted_features
 
 LOG = logging.getLogger("kairos")
 
@@ -65,6 +67,12 @@ class Search:
     budget_pct: float = 0.0
     selected_loss_pct: float = 0.0
     main_depth: int = 0
+    baseline_expected: Optional[float] = None
+    position_key: str = ""
+    side: str = ""
+    posture_mix: dict[str, float] = field(default_factory=dict)
+    posture: str = "Coil"
+    confidence: float = 0.0
 
 
 def parse_info(line: str) -> Optional[Candidate]:
@@ -182,7 +190,12 @@ class KairosProxy:
         self.handshake_buffer: list[str] = []
         self.quit_after_search = False
         self.style = 50
+        self.variety = 0
         self.verbose = False
+        self.forced_posture: Optional[str] = None
+        self.posture = PostureController()
+        seed = os.environ.get("KAIROS_SEED", "")
+        self.rng = random.Random(int(seed) if seed.lstrip("-").isdigit() else None)
         self.log_stderr = log_stderr
         self.log_file = None
         if log_path:
@@ -308,6 +321,9 @@ class KairosProxy:
             self._start_search(line)
             return
         if command == "ucinewgame":
+            self.posture.reset()
+            if self.forced_posture:
+                self.posture.mix = one_hot(self.forced_posture)
             self._send(line)
             return
         # Unknown UCI commands are passed through unchanged.
@@ -330,6 +346,23 @@ class KairosProxy:
             return
         if name.lower() == "kairosverbose":
             self.verbose = value.lower() in ("true", "1", "yes")
+            return
+        if name.lower() == "kairosposture":
+            if value.lower() == "auto":
+                self.forced_posture = None
+            else:
+                posture = next((item for item in POSTURES if item.lower() == value.lower()), None)
+                if posture is None:
+                    self._log("ignored invalid KairosPosture=%r", value)
+                else:
+                    self.forced_posture = posture
+                    self.posture.mix = one_hot(posture)
+            return
+        if name.lower() == "kairosvariety":
+            try:
+                self.variety = max(0, min(100, int(value)))
+            except ValueError:
+                self._log("ignored invalid KairosVariety=%r", value)
             return
         if name.lower() == "threads":
             self._send("setoption name Threads value 1")
@@ -378,6 +411,8 @@ class KairosProxy:
                     self.running = False
                     return
                 self._out("option name KairosStyle type spin default 50 min 0 max 100")
+                self._out("option name KairosPosture type combo default Auto var Auto var Coil var Strike var Absorb var Reverse var Distill var Fog")
+                self._out("option name KairosVariety type spin default 0 min 0 max 100")
                 self._out("option name KairosVerbose type check default false")
                 self._out("uciok")
                 self.waiting_uci = False
@@ -445,8 +480,16 @@ class KairosProxy:
             self.search = Search("passthrough", go_line, self.position_line)
             self._send(go_line)
             return
+        board = board_from_position_command(self.position_line)
         self._send("setoption name MultiPV value 5")
-        search = Search("personality", go_line, self.position_line, go_kind=go_kind)
+        search = Search(
+            "personality",
+            go_line,
+            self.position_line,
+            go_kind=go_kind,
+            position_key=board.position_key() if board else "",
+            side=board.turn if board else "",
+        )
         if go_kind == "depth":
             search.main_depth = amount
             modified_go = go_line
@@ -471,10 +514,15 @@ class KairosProxy:
         if len(candidates) < 2 or any(c.score_kind == "mate" for c in candidates):
             return None, {}, 0.0, 0.0
         baseline_exp = baseline.expected_score
+        search.baseline_expected = baseline_exp
         saturated = is_saturated(baseline_exp)
         style_scale = self.style / 100.0
-        budget_pct = 1.5 * style_scale  # fixed Coil budget from specification
+        budget_pct = 1.5 * style_scale  # fixed single-move budget from specification
         board = board_from_position_command(search.position)
+        mix = self.posture.mix
+        search.posture_mix = dict(mix)
+        search.posture = dominant(mix)
+        search.confidence = max(mix.values())
         scored: list[tuple[float, Candidate, dict[str, float | int], float]] = []
         for candidate in candidates:
             loss_pct = max(0.0, (baseline_exp - candidate.expected_score) * 100.0)
@@ -489,12 +537,9 @@ class KairosProxy:
                 if candidate.score_value < baseline.score_value - SATURATION_CP_MARGIN:
                     continue
             features = candidate_features(board, candidate.move)
-            # Coil: FT=2, FS=-1, FI=1. One weight unit ~= 0.1% expected score.
-            personality_pct = style_scale * 0.1 * (
-                2.0 * float(features["F_T"])
-                - float(features["F_S"])
-                + float(features["F_I"])
-            )
+            # One weight unit is roughly 0.1% expected score; the loss term
+            # stays in percentage points and remains dominant.
+            personality_pct = style_scale * 0.1 * weighted_features(mix, features)
             total = -loss_pct + personality_pct
             scored.append((total, candidate, features, loss_pct))
         if not scored:
@@ -587,11 +632,20 @@ class KairosProxy:
         if accepted and picked is not None:
             f = search.selected_features
             rationale = (
-                "info string kairos posture=COIL conf=1.00 "
+                f"info string kairos posture={search.posture.upper()} "
+                f"conf={search.confidence:.2f} "
                 f"T={f.get('T', 0)} budget={search.budget_pct:.3f}% "
                 f"loss={verified_loss:.3f}% pick={picked.multipv}/5 "
-                f"sf_best={search.sf_best} F_T={float(f.get('F_T', 0)):.3f} "
-                f"F_S={float(f.get('F_S', 0)):.3f} F_I={float(f.get('F_I', 0)):.3f}"
+                f"sf_best={search.sf_best} "
+                f"F_T={float(f.get('F_T', 0)):.3f} "
+                f"F_N={float(f.get('F_N', 0)):.3f} "
+                f"F_R={float(f.get('F_R', 0)):.3f} "
+                f"F_C={float(f.get('F_C', 0)):.3f} "
+                f"F_F={float(f.get('F_F', 0)):.3f} "
+                f"F_P={float(f.get('F_P', 0)):.3f} "
+                f"F_K={float(f.get('F_K', 0)):.3f} "
+                f"F_S={float(f.get('F_S', 0)):.3f} "
+                f"F_I={float(f.get('F_I', 0)):.3f}"
             )
             if self.verbose:
                 self._out(rationale)

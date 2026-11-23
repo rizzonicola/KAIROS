@@ -14,6 +14,11 @@ from typing import Optional
 STARTPOS_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 MOVE_RE = re.compile(r"^([a-h][1-8])([a-h][1-8])([qrbn])?$")
 PIECE_VALUE = {"p": 1, "n": 3, "b": 3, "r": 5, "q": 9, "k": 0}
+DIRECTIONS = ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1))
+
+
+def clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
 
 
 def _square_to_index(square: str) -> int:
@@ -293,6 +298,240 @@ class Board:
         return True
 
 
+    def king_square(self, white: bool) -> Optional[int]:
+        try:
+            return self.squares.index("K" if white else "k")
+        except ValueError:
+            return None
+
+    def king_zone(self, white: bool) -> set[int]:
+        king = self.king_square(white)
+        if king is None:
+            return set()
+        file_index, rank_index = king % 8, king // 8
+        return {
+            rank * 8 + file
+            for rank in range(max(0, rank_index - 1), min(7, rank_index + 1) + 1)
+            for file in range(max(0, file_index - 1), min(7, file_index + 1) + 1)
+        }
+
+    def is_attacked_by_pawn(self, target: int, by_white: bool) -> bool:
+        return any(
+            piece == ("P" if by_white else "p") and self._attacks_square(source, target)
+            for source, piece in enumerate(self.squares)
+        )
+
+    def pseudo_moves(self, source: int) -> list[int]:
+        """Pseudo-legal destinations for a piece. Not a legality claim.
+
+        Castling and en-passant capture beyond the FEN target are omitted.
+        """
+        piece = self.squares[source]
+        if piece is None:
+            return []
+        white = piece.isupper()
+        kind = piece.lower()
+        file_index, rank_index = source % 8, source // 8
+        targets: list[int] = []
+        if kind == "p":
+            direction = 1 if white else -1
+            one_rank = rank_index + direction
+            if not (0 <= one_rank < 8):
+                return []
+            one = one_rank * 8 + file_index
+            if self.squares[one] is None:
+                targets.append(one)
+                start_rank = 1 if white else 6
+                two_rank = rank_index + 2 * direction
+                if rank_index == start_rank and self.squares[two_rank * 8 + file_index] is None:
+                    targets.append(two_rank * 8 + file_index)
+            for df in (-1, 1):
+                nf = file_index + df
+                if 0 <= nf < 8:
+                    target = one_rank * 8 + nf
+                    victim = self.squares[target]
+                    if victim is not None and victim.isupper() != white:
+                        targets.append(target)
+                    elif victim is None and self.ep_square == target:
+                        targets.append(target)
+            return targets
+        for target, victim in enumerate(self.squares):
+            if target == source:
+                continue
+            if victim is not None and victim.isupper() == white:
+                continue
+            if self._attacks_square(source, target):
+                targets.append(target)
+        return targets
+
+    def safe_mobility(self, white: bool) -> int:
+        """Non-king pseudo-legal moves whose destination is not attacked by a pawn."""
+        return sum(
+            1
+            for source, piece in enumerate(self.squares)
+            if piece is not None and piece.isupper() == white and piece.lower() != "k"
+            for target in self.pseudo_moves(source)
+            if not self.is_attacked_by_pawn(target, not white)
+        )
+
+    def pawn_breaks(self, white: bool) -> int:
+        """Pawn pushes that would create a new lever on an enemy pawn."""
+        breaks = 0
+        for source, piece in enumerate(self.squares):
+            if piece != ("P" if white else "p"):
+                continue
+            file_index, rank_index = source % 8, source // 8
+            direction = 1 if white else -1
+            for steps in (1, 2):
+                if steps == 2 and rank_index != (1 if white else 6):
+                    continue
+                target_rank = rank_index + steps * direction
+                if not (0 <= target_rank < 8):
+                    continue
+                target = target_rank * 8 + file_index
+                if self.squares[target] is not None:
+                    break
+                attack_rank = target_rank + direction
+                if 0 <= attack_rank < 8 and any(
+                    0 <= file_index + df < 8
+                    and self.squares[attack_rank * 8 + file_index + df] == ("p" if white else "P")
+                    for df in (-1, 1)
+                ):
+                    breaks += 1
+        return breaks
+
+    def reserve_count(self, white: bool) -> int:
+        """Non-pawn pieces not committed to an enemy pawn and with two safe squares."""
+        reserve = 0
+        for source, piece in enumerate(self.squares):
+            if piece is None or piece.isupper() != white or piece.lower() in ("p", "k"):
+                continue
+            if self.is_attacked_by_pawn(source, not white):
+                continue
+            safe = [
+                target
+                for target in self.pseudo_moves(source)
+                if not self.is_attacked_by_pawn(target, not white)
+            ]
+            if len(safe) >= 2:
+                reserve += 1
+        return reserve
+
+    def coordination(self, white: bool) -> tuple[int, int, int]:
+        """Return (mutually protected pieces, enemy-king-zone attackers, batteries)."""
+        mutual = 0
+        for source, piece in enumerate(self.squares):
+            if piece is None or piece.isupper() != white:
+                continue
+            if any(
+                other != source
+                and other_piece is not None
+                and other_piece.isupper() == white
+                and self._attacks_square(other, source)
+                for other, other_piece in enumerate(self.squares)
+            ):
+                mutual += 1
+        enemy_zone = self.king_zone(not white)
+        king_attacks = sum(
+            1
+            for source, piece in enumerate(self.squares)
+            if piece is not None
+            and piece.isupper() == white
+            and any(self._attacks_square(source, target) for target in enemy_zone)
+        )
+        batteries = 0
+        for source, piece in enumerate(self.squares):
+            if piece is None or piece.isupper() != white:
+                continue
+            kind = piece.lower()
+            if kind not in ("q", "r", "b"):
+                continue
+            for df, dr in DIRECTIONS:
+                if kind == "r" and not (df == 0 or dr == 0):
+                    continue
+                if kind == "b" and not (df != 0 and dr != 0):
+                    continue
+                file_index, rank_index = source % 8 + df, source // 8 + dr
+                own_seen = False
+                while 0 <= file_index < 8 and 0 <= rank_index < 8:
+                    other = self.squares[rank_index * 8 + file_index]
+                    if other is not None:
+                        if not own_seen:
+                            if other.isupper() != white:
+                                break
+                            own_seen = True
+                        else:
+                            if other.isupper() != white:
+                                batteries += 1
+                            break
+                    file_index += df
+                    rank_index += dr
+        return mutual, king_attacks, batteries
+
+    def king_margin(self, white: bool) -> tuple[int, int]:
+        """Return (defenders, attackers) of the given side's 3x3 king zone."""
+        zone = self.king_zone(white)
+        if not zone:
+            return 0, 0
+        defenders: set[int] = set()
+        attackers: set[int] = set()
+        for source, piece in enumerate(self.squares):
+            if piece is None:
+                continue
+            if any(self._attacks_square(source, target) for target in zone):
+                if piece.isupper() == white:
+                    defenders.add(source)
+                else:
+                    attackers.add(source)
+        return len(defenders), len(attackers)
+
+    def material_balance(self) -> int:
+        total = 0
+        for piece in self.squares:
+            if piece is not None:
+                value = PIECE_VALUE[piece.lower()]
+                total += value if piece.isupper() else -value
+        return total
+
+    def phase(self) -> float:
+        non_pawn = sum(
+            PIECE_VALUE[piece.lower()]
+            for piece in self.squares
+            if piece is not None and piece.lower() not in ("p", "k")
+        )
+        return clamp(non_pawn / 62.0, 0.0, 1.0)
+
+    def position_key(self) -> str:
+        return " ".join(self.to_fen().split()[:4])
+
+    def null_move_fen(self) -> Optional[str]:
+        """FEN with the side to move flipped. None when that position is illegal."""
+        own_king = "K" if self.turn == "w" else "k"
+        if self._king_attacked(own_king):
+            return None
+        fields = self.to_fen().split()
+        fields[1] = "b" if self.turn == "w" else "w"
+        fields[3] = "-"
+        return " ".join(fields)
+
+    def forcing_density(self, moves: list[str]) -> float:
+        """Share of checks/captures among the first six PV moves."""
+        board = self
+        forcing = 0
+        total = 0
+        for move in moves[:6]:
+            try:
+                gives_check = board.move_gives_check(move)
+                captures = board.captured_value(move) > 0
+                board = board.apply_uci(move)
+            except ValueError:
+                break
+            total += 1
+            if gives_check or captures:
+                forcing += 1
+        return forcing / total if total else 0.0
+
+
 def board_from_position_command(command: str) -> Optional[Board]:
     """Reconstruct a board from `position startpos|fen ... [moves ...]`.
 
@@ -320,37 +559,94 @@ def board_from_position_command(command: str) -> Optional[Board]:
         return None
 
 
-def candidate_features(board: Optional[Board], move: str) -> dict[str, float | int]:
-    """Return the implemented subset of T/S/I features for one SF candidate.
-
-    F_T is the change in a Tension Index proxy: directly mutually attacking
-    pawn pairs plus absolute pins. It is not the full Tension Index (no
-    near-zero SEE captures, x-rays or key files). F_S is net captured material
-    minus promotion gain, not a full exchange/SEE sequence. F_I is 1 for a
-    check, a queen capture, or a direct attack on the enemy queen; broader
-    threats remain unimplemented.
-    """
-    # TODO(KAIROS roadmap): add near-zero-SEE captures, x-rays, key-file
-    # tension, reserve, reply narrowness and release-value probes only when
-    # they can be measured reliably; do not infer them from approximate rules.
+def position_stats(board: Optional[Board]) -> dict[str, float]:
+    """Static evidence for posture inference, from the side to move's view."""
     if board is None:
-        return {"T": 0, "F_T": 0.0, "F_S": 0.0, "F_I": 0.0}
+        return {
+            "tension": 0.0,
+            "own_king_attackers": 0.0,
+            "own_king_defenders": 0.0,
+            "enemy_king_attackers": 0.0,
+            "enemy_king_defenders": 0.0,
+            "phase": 0.0,
+            "material_balance": 0.0,
+        }
+    white = board.turn == "w"
+    own_defenders, own_attackers = board.king_margin(white)
+    enemy_defenders, enemy_attackers = board.king_margin(not white)
+    balance = board.material_balance()
+    return {
+        "tension": float(board.tension_count()),
+        "own_king_attackers": float(own_attackers),
+        "own_king_defenders": float(own_defenders),
+        "enemy_king_attackers": float(enemy_attackers),
+        "enemy_king_defenders": float(enemy_defenders),
+        "phase": board.phase(),
+        "material_balance": float(balance if white else -balance),
+    }
+
+
+def candidate_features(
+    board: Optional[Board], move: str, probes: Optional[dict[str, float]] = None
+) -> dict[str, float | int]:
+    """Return the nine personality features for one Stockfish candidate.
+
+    Cheap features are static proxies, not a full SEE/legal-move model:
+
+    - F_T: change in the Tension Index proxy (pawn levers + absolute pins).
+    - F_R: non-pawn pieces with at least two safe pseudo-legal destinations.
+    - F_C: mutual protection, enemy-king-zone attackers and batteries.
+    - F_F: safe mobility plus pawn breaks that would create a lever.
+    - F_K: own king-zone defenders minus attackers.
+    - F_S: net captured material minus promotion gain.
+    - F_I: check/queen capture/queen attack, or enemy king-zone pressure.
+
+    F_N and F_P are probe features. They stay neutral until the caller supplies
+    measured child-search values in ``probes``; they are never inferred from an
+    approximate static rule.
+    """
+    probes = probes or {}
+    zero = {
+        "T": 0,
+        "F_T": 0.0,
+        "F_N": 0.0,
+        "F_R": 0.0,
+        "F_C": 0.0,
+        "F_F": 0.0,
+        "F_P": 0.0,
+        "F_K": 0.0,
+        "F_S": 0.0,
+        "F_I": 0.0,
+    }
+    if board is None:
+        return zero
     try:
         t_before = board.tension_count()
         captured = board.captured_value(move)
         material = board.material_delta(move)
         after = board.apply_uci(move)
         t_after = after.tension_count()
-        enemy_king = "k" if board.turn == "w" else "K"
+        white = board.turn == "w"
+        enemy_king = "k" if white else "K"
         gives_check = after._king_attacked(enemy_king)
         threatens_queen = board.move_threatens_enemy_queen(move)
+        reserve = after.reserve_count(white)
+        mutual, king_attacks, batteries = after.coordination(white)
+        mobility = after.safe_mobility(white)
+        breaks = after.pawn_breaks(white)
+        defenders, attackers = after.king_margin(white)
     except ValueError:
-        return {"T": t_before if "t_before" in locals() else 0, "F_T": 0.0, "F_S": 0.0, "F_I": 0.0}
-    delta = t_after - t_before
+        return zero
     forcing = gives_check or captured == PIECE_VALUE["q"] or threatens_queen
     return {
         "T": t_before,
-        "F_T": max(-1.0, min(1.0, delta / 4.0)),
-        "F_S": max(-1.0, min(1.0, material / 9.0)),
-        "F_I": 1.0 if forcing else 0.0,
+        "F_T": clamp((t_after - t_before) / 4.0, -1.0, 1.0),
+        "F_N": clamp(float(probes.get("F_N", 0.0)), -1.0, 1.0),
+        "F_R": clamp(reserve / 4.0, 0.0, 1.0),
+        "F_C": clamp((mutual + king_attacks + 2 * batteries) / 10.0, 0.0, 1.0),
+        "F_F": clamp((mobility + 3 * breaks) / 20.0, 0.0, 1.0),
+        "F_P": clamp(float(probes.get("F_P", 0.0)), -1.0, 1.0),
+        "F_K": clamp((defenders - attackers) / 8.0, -1.0, 1.0),
+        "F_S": clamp(material / 9.0, -1.0, 1.0),
+        "F_I": clamp(1.0 if forcing else 0.25 * king_attacks, 0.0, 1.0),
     }
