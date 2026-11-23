@@ -1,0 +1,111 @@
+{
+  "cases": [
+    {
+      "candidate": {
+        "depth": 20,
+        "move": "e2e4",
+        "multipv": 1,
+        "pv": [
+          "e2e4",
+          "e7e5"
+        ],
+        "scoreKind": "cp",
+        "scoreValue": 35,
+        "wdl": [
+          900,
+          100,
+          0
+        ]
+      },
+      "line": "info depth 20 seldepth 30 multipv 1 score cp 35 wdl 900 100 0 pv e2e4 e7e5"
+    },
+    {
+      "candidate": null,
+      "line": "info depth 20 score cp 35 lowerbound wdl 900 100 0 pv e2e4"
+    },
+    {
+      "candidate": null,
+      "line": "info depth 20 score cp 35 upperbound wdl 900 100 0 pv e2e4"
+    },
+    {
+      "candidate": null,
+      "line": "info depth 20 score cp 35 wdl 900 100 0"
+    },
+    {
+      "candidate": null,
+      "line": "info depth 20 score cp 35 pv e2e4"
+    },
+    {
+      "candidate": null,
+      "line": "info depth 20 score cp 35 wdl 0 0 0 pv e2e4"
+    },
+    {
+      "candidate": null,
+      "line": "info score cp 35 wdl 900 100 0 pv e2e4"
+    },
+    {
+      "candidate": null,
+      "line": "info depth 20 wdl 900 100 0 pv e2e4"
+    },
+    {
+      "candidate": {
+        "depth": 20,
+        "move": "e2e4",
+        "multipv": 1,
+        "pv": [
+          "e2e4",
+          "e7e5",
+          "e1e2"
+        ],
+        "scoreKind": "cp",
+        "scoreValue": 35,
+        "wdl": [
+          900,
+          100,
+          0
+        ]
+      },
+      "line": "info depth 20 score cp 35 wdl 900 100 0 pv e2e4 e7e5 e1e2"
+    },
+    {
+      "candidate": null,
+      "line": "info string kairos posture=COIL"
+    },
+    {
+      "candidate": {
+        "depth": 20,
+        "move": "g1f3",
+        "multipv": 2,
+        "pv": [
+          "g1f3"
+        ],
+        "scoreKind": "cp",
+        "scoreValue": -12,
+        "wdl": [
+          100,
+          800,
+          100
+        ]
+      },
+      "line": "info depth 20 multipv 2 score cp -12 wdl 100 800 100 pv g1f3"
+    },
+    {
+      "candidate": {
+        "depth": 20,
+        "move": "e2e4",
+        "multipv": 3,
+        "pv": [
+          "e2e4"
+        ],
+        "scoreKind": "mate",
+        "scoreValue": 4,
+        "wdl": [
+          1000,
+          0,
+          0
+        ]
+      },
+      "line": "info depth 20 multipv 3 score mate 4 wdl 1000 0 0 pv e2e4"
+    }
+  ]
+}

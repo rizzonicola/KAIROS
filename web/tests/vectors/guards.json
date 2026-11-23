@@ -1,0 +1,275 @@
+{
+  "fiftyMove": [
+    {
+      "baselineExpected": 0.65,
+      "blocked": true,
+      "fen": "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 90 1",
+      "move": "e1d2"
+    },
+    {
+      "baselineExpected": 0.65,
+      "blocked": false,
+      "fen": "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 90 1",
+      "move": "c2c4"
+    },
+    {
+      "baselineExpected": 0.5,
+      "blocked": false,
+      "fen": "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 90 1",
+      "move": "e1d2"
+    },
+    {
+      "baselineExpected": 0.65,
+      "blocked": false,
+      "fen": "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 90 1",
+      "move": "e2e5"
+    },
+    {
+      "baselineExpected": 0.65,
+      "blocked": false,
+      "fen": "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 89 1",
+      "move": "e1d2"
+    }
+  ],
+  "repetition": [
+    {
+      "baselineExpected": 0.65,
+      "blocked": true,
+      "counts": {
+        "4k3/8/8/3p4/2P1P3/8/8/4K3 b - c3": 2
+      },
+      "fen": "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1",
+      "move": "c2c4"
+    },
+    {
+      "baselineExpected": 0.65,
+      "blocked": false,
+      "counts": {
+        "4k3/8/8/3p4/2P1P3/8/8/4K3 b - c3": 1
+      },
+      "fen": "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1",
+      "move": "c2c4"
+    },
+    {
+      "baselineExpected": 0.5,
+      "blocked": false,
+      "counts": {
+        "4k3/8/8/3p4/2P1P3/8/8/4K3 b - c3": 2
+      },
+      "fen": "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1",
+      "move": "c2c4"
+    },
+    {
+      "baselineExpected": 0.49,
+      "blocked": false,
+      "counts": {
+        "4k3/8/8/3p4/2P1P3/8/8/4K3 b - c3": 2
+      },
+      "fen": "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1",
+      "move": "c2c4"
+    },
+    {
+      "baselineExpected": 0.65,
+      "blocked": false,
+      "counts": {
+        "4k3/8/8/3p4/4P3/8/2PK4/8 b - -": 2
+      },
+      "fen": "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1",
+      "move": "c2c4"
+    },
+    {
+      "baselineExpected": 0.65,
+      "blocked": false,
+      "counts": {
+        "4k3/8/8/3p4/2P1P3/8/8/4K3 b - c3": 2
+      },
+      "fen": "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1",
+      "move": "e2e5"
+    }
+  ],
+  "resultBand": [
+    {
+      "band": 1,
+      "expected": 0.55
+    },
+    {
+      "band": -1,
+      "expected": 0.45
+    },
+    {
+      "band": 0,
+      "expected": 0.5
+    },
+    {
+      "band": 0,
+      "expected": 0.54
+    },
+    {
+      "band": 1,
+      "expected": 0.56
+    },
+    {
+      "band": -1,
+      "expected": 0.44
+    },
+    {
+      "band": 1,
+      "expected": 0.9
+    },
+    {
+      "band": -1,
+      "expected": 0.1
+    }
+  ],
+  "saturation": [
+    {
+      "expected": 0.99,
+      "saturated": true
+    },
+    {
+      "expected": 0.01,
+      "saturated": true
+    },
+    {
+      "expected": 0.985,
+      "saturated": false
+    },
+    {
+      "expected": 0.0101,
+      "saturated": false
+    },
+    {
+      "expected": 0.5,
+      "saturated": false
+    },
+    {
+      "expected": 1.0,
+      "saturated": true
+    },
+    {
+      "expected": 0.0,
+      "saturated": true
+    }
+  ],
+  "supported": [
+    {
+      "amount": 4,
+      "kind": "depth",
+      "line": "go depth 4",
+      "reason": "supported",
+      "supported": true
+    },
+    {
+      "amount": 2000,
+      "kind": "movetime",
+      "line": "go movetime 2000",
+      "reason": "supported",
+      "supported": true
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go depth 4 movetime 1000",
+      "reason": "multiple-or-missing-limits",
+      "supported": false
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go movetime 1000 depth 4",
+      "reason": "multiple-or-missing-limits",
+      "supported": false
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go wtime 60000 btime 60000 winc 1000 binc 1000",
+      "reason": "unsupported-or-clock-search",
+      "supported": false
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go infinite",
+      "reason": "unsupported-or-clock-search",
+      "supported": false
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go nodes 1000",
+      "reason": "unsupported-or-clock-search",
+      "supported": false
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go mate 3",
+      "reason": "unsupported-or-clock-search",
+      "supported": false
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go perft 5",
+      "reason": "unsupported-or-clock-search",
+      "supported": false
+    },
+    {
+      "amount": 1000,
+      "kind": "",
+      "line": "go movetime 1000",
+      "reason": "time-too-low",
+      "supported": false
+    },
+    {
+      "amount": 1500,
+      "kind": "movetime",
+      "line": "go movetime 1500",
+      "reason": "supported",
+      "supported": true
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go depth 0",
+      "reason": "invalid-depth",
+      "supported": false
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go depth",
+      "reason": "invalid-depth",
+      "supported": false
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go",
+      "reason": "unsupported-or-clock-search",
+      "supported": false
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go ponder",
+      "reason": "unsupported-or-clock-search",
+      "supported": false
+    },
+    {
+      "amount": 1,
+      "kind": "depth",
+      "line": "go depth 1",
+      "reason": "supported",
+      "supported": true
+    },
+    {
+      "amount": 4,
+      "kind": "depth",
+      "line": "go depth 4 searchmoves e2e4",
+      "reason": "supported",
+      "supported": true
+    }
+  ]
+}

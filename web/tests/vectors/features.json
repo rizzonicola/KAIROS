@@ -1,0 +1,664 @@
+{
+  "cases": [
+    {
+      "features": {
+        "c2c3": {
+          "F_C": 0.0,
+          "F_F": 0.25,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 1
+        },
+        "c2c4": {
+          "F_C": 0.0,
+          "F_F": 0.2,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.25,
+          "T": 1
+        },
+        "e1d2": {
+          "F_C": 0.1,
+          "F_F": 0.3,
+          "F_I": 0.0,
+          "F_K": 0.25,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 1
+        },
+        "e4d5": {
+          "F_C": 0.0,
+          "F_F": 0.15,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.1111111111111111,
+          "F_T": -0.25,
+          "T": 1
+        }
+      },
+      "fen": "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1",
+      "moves": [
+        "c2c4",
+        "e1d2",
+        "e4d5",
+        "c2c3"
+      ],
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 1.0,
+        "materialBalance": 1.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 1.0,
+        "phase": 0.0,
+        "tension": 1.0
+      }
+    },
+    {
+      "features": {
+        "e1d2": {
+          "F_C": 0.4,
+          "F_F": 1.0,
+          "F_I": 0.25,
+          "F_K": 0.375,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.25,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "f3b7": {
+          "F_C": 0.3,
+          "F_F": 1.0,
+          "F_I": 0.25,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.25,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "f3f7": {
+          "F_C": 0.2,
+          "F_F": 1.0,
+          "F_I": 1.0,
+          "F_K": 0.25,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.25,
+          "F_S": 0.1111111111111111,
+          "F_T": 0.0,
+          "T": 0
+        }
+      },
+      "fen": "4k3/5p2/8/8/8/5Q2/5PPP/4K3 w - - 0 1",
+      "moves": [
+        "f3f7",
+        "f3b7",
+        "e1d2"
+      ],
+      "stats": {
+        "enemyKingAttackers": 1.0,
+        "enemyKingDefenders": 1.0,
+        "materialBalance": 11.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 2.0,
+        "phase": 0.14516129032258066,
+        "tension": 0.0
+      }
+    },
+    {
+      "features": {
+        "e1d2": {
+          "F_C": 0.1,
+          "F_F": 0.3,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.25,
+          "F_S": 0.0,
+          "F_T": -0.25,
+          "T": 1
+        },
+        "e2c3": {
+          "F_C": 0.0,
+          "F_F": 0.4,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.25,
+          "F_S": 0.0,
+          "F_T": -0.25,
+          "T": 1
+        },
+        "e2d4": {
+          "F_C": 0.0,
+          "F_F": 0.4,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.25,
+          "F_S": 0.0,
+          "F_T": -0.25,
+          "T": 1
+        }
+      },
+      "fen": "k3r3/8/8/8/8/8/4N3/4K3 w - - 0 1",
+      "moves": [
+        "e1d2",
+        "e2d4",
+        "e2c3"
+      ],
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 2.0,
+        "materialBalance": -2.0,
+        "ownKingAttackers": 1.0,
+        "ownKingDefenders": 1.0,
+        "phase": 0.12903225806451613,
+        "tension": 1.0
+      }
+    },
+    {
+      "features": {
+        "d4e6": {
+          "F_C": 0.1,
+          "F_F": 0.4,
+          "F_I": 0.25,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.25,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "d4f5": {
+          "F_C": 0.1,
+          "F_F": 0.4,
+          "F_I": 0.25,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.25,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "e1d2": {
+          "F_C": 0.0,
+          "F_F": 0.4,
+          "F_I": 0.0,
+          "F_K": 0.25,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.25,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        }
+      },
+      "fen": "4k3/8/8/8/3N4/8/8/4K3 w - - 0 1",
+      "moves": [
+        "d4e6",
+        "d4f5",
+        "e1d2"
+      ],
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 1.0,
+        "materialBalance": 3.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 2.0,
+        "phase": 0.04838709677419355,
+        "tension": 0.0
+      }
+    },
+    {
+      "features": {
+        "a1a7": {
+          "F_C": 0.0,
+          "F_F": 0.0,
+          "F_I": 0.0,
+          "F_K": 0.0,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "e1d2": {
+          "F_C": 0.2,
+          "F_F": 1.0,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.5,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "h1h7": {
+          "F_C": 0.0,
+          "F_F": 0.0,
+          "F_I": 0.0,
+          "F_K": 0.0,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        }
+      },
+      "fen": "R6R/8/8/8/8/8/8/4K3 w - - 0 1",
+      "moves": [
+        "a1a7",
+        "h1h7",
+        "e1d2"
+      ],
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 0.0,
+        "materialBalance": 10.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 1.0,
+        "phase": 0.16129032258064516,
+        "tension": 0.0
+      }
+    },
+    {
+      "features": {
+        "c2c3": {
+          "F_C": 0.0,
+          "F_F": 0.15,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "c2c4": {
+          "F_C": 0.0,
+          "F_F": 0.1,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.25,
+          "T": 0
+        },
+        "e1d2": {
+          "F_C": 0.1,
+          "F_F": 0.2,
+          "F_I": 0.0,
+          "F_K": 0.25,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        }
+      },
+      "fen": "4k3/8/8/3p4/8/8/2P5/4K3 w - - 0 1",
+      "moves": [
+        "c2c3",
+        "c2c4",
+        "e1d2"
+      ],
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 1.0,
+        "materialBalance": 0.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 1.0,
+        "phase": 0.0,
+        "tension": 0.0
+      }
+    },
+    {
+      "features": {
+        "a1a7": {
+          "F_C": 0.1,
+          "F_F": 0.7,
+          "F_I": 1.0,
+          "F_K": 0.0,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.25,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "a1b1": {
+          "F_C": 0.1,
+          "F_F": 0.65,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.25,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        }
+      },
+      "fen": "q6k/8/8/8/8/8/8/R6K w - - 0 1",
+      "moves": [
+        "a1a7",
+        "a1b1"
+      ],
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 2.0,
+        "materialBalance": -4.0,
+        "ownKingAttackers": 1.0,
+        "ownKingDefenders": 2.0,
+        "phase": 0.22580645161290322,
+        "tension": 0.0
+      }
+    },
+    {
+      "features": {
+        "a7a8n": {
+          "F_C": 0.0,
+          "F_F": 0.1,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.25,
+          "F_S": -0.2222222222222222,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "a7a8q": {
+          "F_C": 0.1,
+          "F_F": 0.9,
+          "F_I": 1.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.25,
+          "F_S": -0.8888888888888888,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "e1d2": {
+          "F_C": 0.0,
+          "F_F": 0.05,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        }
+      },
+      "fen": "4k3/P7/8/8/8/8/8/4K3 w - - 0 1",
+      "moves": [
+        "a7a8q",
+        "a7a8n",
+        "e1d2"
+      ],
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 1.0,
+        "materialBalance": 1.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 1.0,
+        "phase": 0.0,
+        "tension": 0.0
+      }
+    },
+    {
+      "features": {
+        "d2d4": {
+          "F_C": 1.0,
+          "F_F": 1.0,
+          "F_I": 0.0,
+          "F_K": 0.75,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 1.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "e2e4": {
+          "F_C": 1.0,
+          "F_F": 1.0,
+          "F_I": 0.0,
+          "F_K": 0.75,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 1.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "g1f3": {
+          "F_C": 1.0,
+          "F_F": 1.0,
+          "F_I": 0.0,
+          "F_K": 0.875,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.5,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        }
+      },
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "moves": [
+        "e2e4",
+        "g1f3",
+        "d2d4"
+      ],
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 6.0,
+        "materialBalance": 0.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 6.0,
+        "phase": 1.0,
+        "tension": 0.0
+      }
+    },
+    {
+      "features": {
+        "a1a8": {
+          "F_C": 0.2,
+          "F_F": 1.0,
+          "F_I": 1.0,
+          "F_K": 0.25,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.5,
+          "F_S": 0.5555555555555556,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "e1c1": {
+          "F_C": 0.4,
+          "F_F": 1.0,
+          "F_I": 0.25,
+          "F_K": 0.375,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.5,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "e1g1": {
+          "F_C": 0.4,
+          "F_F": 1.0,
+          "F_I": 0.25,
+          "F_K": 0.25,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.5,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        }
+      },
+      "fen": "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1",
+      "moves": [
+        "e1g1",
+        "e1c1",
+        "a1a8"
+      ],
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 3.0,
+        "materialBalance": 0.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 3.0,
+        "phase": 0.3225806451612903,
+        "tension": 0.0
+      }
+    },
+    {
+      "features": {
+        "e1d2": {
+          "F_C": 0.1,
+          "F_F": 0.1,
+          "F_I": 0.0,
+          "F_K": 0.25,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "e2e3": {
+          "F_C": 0.0,
+          "F_F": 0.05,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "e2e4": {
+          "F_C": 0.0,
+          "F_F": 0.05,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        }
+      },
+      "fen": "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1",
+      "moves": [
+        "e1d2",
+        "e2e3",
+        "e2e4"
+      ],
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 1.0,
+        "materialBalance": 1.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 1.0,
+        "phase": 0.0,
+        "tension": 0.0
+      }
+    },
+    {
+      "features": {
+        "e1d2": {
+          "F_C": 0.0,
+          "F_F": 0.05,
+          "F_I": 0.0,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "e5d6": {
+          "F_C": 0.1,
+          "F_F": 0.05,
+          "F_I": 0.25,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.1111111111111111,
+          "F_T": 0.0,
+          "T": 0
+        },
+        "e5e6": {
+          "F_C": 0.1,
+          "F_F": 0.05,
+          "F_I": 0.25,
+          "F_K": 0.125,
+          "F_N": 0.0,
+          "F_P": 0.0,
+          "F_R": 0.0,
+          "F_S": 0.0,
+          "F_T": 0.0,
+          "T": 0
+        }
+      },
+      "fen": "4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1",
+      "moves": [
+        "e5d6",
+        "e5e6",
+        "e1d2"
+      ],
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 1.0,
+        "materialBalance": 0.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 1.0,
+        "phase": 0.0,
+        "tension": 0.0
+      }
+    }
+  ]
+}

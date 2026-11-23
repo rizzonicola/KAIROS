@@ -1,0 +1,775 @@
+{
+  "classes": [
+    {
+      "class": "endgame",
+      "expected": 0.5,
+      "forcingDensity": 0.0,
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 0.0,
+        "materialBalance": 0.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 0.0,
+        "phase": 0.1,
+        "tension": 0.0
+      }
+    },
+    {
+      "class": "sharp-tactical",
+      "expected": 0.5,
+      "forcingDensity": 0.0,
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 0.0,
+        "materialBalance": 0.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 0.0,
+        "phase": 0.8,
+        "tension": 3.0
+      }
+    },
+    {
+      "class": "sharp-tactical",
+      "expected": 0.5,
+      "forcingDensity": 0.6,
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 0.0,
+        "materialBalance": 0.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 0.0,
+        "phase": 0.8,
+        "tension": 0.0
+      }
+    },
+    {
+      "class": "defending",
+      "expected": 0.5,
+      "forcingDensity": 0.0,
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 0.0,
+        "materialBalance": 0.0,
+        "ownKingAttackers": 2.0,
+        "ownKingDefenders": 0.0,
+        "phase": 0.8,
+        "tension": 0.0
+      }
+    },
+    {
+      "class": "defending",
+      "expected": 0.4,
+      "forcingDensity": 0.0,
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 0.0,
+        "materialBalance": 0.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 0.0,
+        "phase": 0.8,
+        "tension": 0.0
+      }
+    },
+    {
+      "class": "quiet-maneuvering",
+      "expected": 0.55,
+      "forcingDensity": 0.0,
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 0.0,
+        "materialBalance": 0.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 0.0,
+        "phase": 0.8,
+        "tension": 0.0
+      }
+    },
+    {
+      "class": "endgame",
+      "expected": 0.3,
+      "forcingDensity": 0.0,
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 0.0,
+        "materialBalance": 0.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 0.0,
+        "phase": 0.2,
+        "tension": 5.0
+      }
+    }
+  ],
+  "controller": [
+    {
+      "finalMix": {
+        "Absorb": 0.0,
+        "Coil": 0.2,
+        "Distill": 0.0,
+        "Fog": 0.0,
+        "Reverse": 0.0,
+        "Strike": 0.8
+      },
+      "initialMix": null,
+      "name": "inertia",
+      "steps": [
+        {
+          "evidence": {
+            "enemyKingPressure": 0.2,
+            "expected": 0.6,
+            "forcingDensity": 0.0,
+            "materialBalance": 0.0,
+            "opponentFragility": 0.0,
+            "ownKingPressure": 0.0,
+            "phase": 0.0,
+            "tension": 0.0,
+            "trend": 0.0
+          },
+          "mix": {
+            "Absorb": 0.0,
+            "Coil": 0.2,
+            "Distill": 0.0,
+            "Fog": 0.0,
+            "Reverse": 0.0,
+            "Strike": 0.8
+          }
+        },
+        {
+          "evidence": {
+            "enemyKingPressure": 0.2,
+            "expected": 0.6,
+            "forcingDensity": 0.0,
+            "materialBalance": 0.0,
+            "opponentFragility": 0.0,
+            "ownKingPressure": 0.0,
+            "phase": 0.0,
+            "tension": 0.0,
+            "trend": 0.0
+          },
+          "mix": {
+            "Absorb": 0.0,
+            "Coil": 0.2,
+            "Distill": 0.0,
+            "Fog": 0.0,
+            "Reverse": 0.0,
+            "Strike": 0.8
+          }
+        }
+      ]
+    },
+    {
+      "finalMix": {
+        "Absorb": 0.0,
+        "Coil": 0.2,
+        "Distill": 0.0,
+        "Fog": 0.0,
+        "Reverse": 0.0,
+        "Strike": 0.8
+      },
+      "initialMix": null,
+      "name": "immediate-strike",
+      "steps": [
+        {
+          "evidence": {
+            "enemyKingPressure": 0.8,
+            "expected": 0.6,
+            "forcingDensity": 0.0,
+            "materialBalance": 0.0,
+            "opponentFragility": 0.0,
+            "ownKingPressure": 0.0,
+            "phase": 0.0,
+            "tension": 0.0,
+            "trend": 0.0
+          },
+          "mix": {
+            "Absorb": 0.0,
+            "Coil": 0.2,
+            "Distill": 0.0,
+            "Fog": 0.0,
+            "Reverse": 0.0,
+            "Strike": 0.8
+          }
+        }
+      ]
+    },
+    {
+      "finalMix": {
+        "Absorb": 0.0,
+        "Coil": 0.9411764705882353,
+        "Distill": 0.058823529411764705,
+        "Fog": 0.0,
+        "Reverse": 0.0,
+        "Strike": 0.0
+      },
+      "initialMix": {
+        "Absorb": 0.0,
+        "Coil": 0.0,
+        "Distill": 1.0,
+        "Fog": 0.0,
+        "Reverse": 0.0,
+        "Strike": 0.0
+      },
+      "name": "distill-lock-exit",
+      "steps": [
+        {
+          "evidence": {
+            "enemyKingPressure": 0.0,
+            "expected": 0.85,
+            "forcingDensity": 0.0,
+            "materialBalance": 0.0,
+            "opponentFragility": 0.0,
+            "ownKingPressure": 0.0,
+            "phase": 0.0,
+            "tension": 0.0,
+            "trend": 0.0
+          },
+          "mix": {
+            "Absorb": 0.0,
+            "Coil": 0.8,
+            "Distill": 0.05,
+            "Fog": 0.0,
+            "Reverse": 0.0,
+            "Strike": 0.0
+          }
+        },
+        {
+          "evidence": {
+            "enemyKingPressure": 0.0,
+            "expected": 0.7,
+            "forcingDensity": 0.0,
+            "materialBalance": 0.0,
+            "opponentFragility": 0.0,
+            "ownKingPressure": 0.0,
+            "phase": 0.0,
+            "tension": 0.0,
+            "trend": 0.0
+          },
+          "mix": {
+            "Absorb": 0.0,
+            "Coil": 0.8,
+            "Distill": 0.05,
+            "Fog": 0.0,
+            "Reverse": 0.0,
+            "Strike": 0.0
+          }
+        },
+        {
+          "evidence": {
+            "enemyKingPressure": 0.0,
+            "expected": 0.5,
+            "forcingDensity": 0.0,
+            "materialBalance": 0.0,
+            "opponentFragility": 0.0,
+            "ownKingPressure": 0.0,
+            "phase": 0.0,
+            "tension": 0.0,
+            "trend": 0.0
+          },
+          "mix": {
+            "Absorb": 0.0,
+            "Coil": 0.8,
+            "Distill": 0.05,
+            "Fog": 0.0,
+            "Reverse": 0.0,
+            "Strike": 0.0
+          }
+        },
+        {
+          "evidence": {
+            "enemyKingPressure": 0.0,
+            "expected": 0.5,
+            "forcingDensity": 0.0,
+            "materialBalance": 0.0,
+            "opponentFragility": 0.0,
+            "ownKingPressure": 0.0,
+            "phase": 0.0,
+            "tension": 0.0,
+            "trend": 0.0
+          },
+          "mix": {
+            "Absorb": 0.0,
+            "Coil": 0.8,
+            "Distill": 0.05,
+            "Fog": 0.0,
+            "Reverse": 0.0,
+            "Strike": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "finalMix": {
+        "Absorb": 0.0,
+        "Coil": 0.0,
+        "Distill": 0.0,
+        "Fog": 1.0,
+        "Reverse": 0.0,
+        "Strike": 0.0
+      },
+      "initialMix": null,
+      "name": "forced-fog",
+      "steps": [
+        {
+          "evidence": {
+            "enemyKingPressure": 0.0,
+            "expected": 0.5,
+            "forcingDensity": 0.0,
+            "materialBalance": 0.0,
+            "opponentFragility": 0.0,
+            "ownKingPressure": 0.0,
+            "phase": 0.0,
+            "tension": 0.0,
+            "trend": 0.0
+          },
+          "forced": "Fog",
+          "mix": {
+            "Absorb": 0.09959944199274451,
+            "Coil": 0.4463737305906532,
+            "Distill": 0.2707393532935381,
+            "Fog": 0.09959944199274451,
+            "Reverse": 0.036640587061278346,
+            "Strike": 0.04704744506904139
+          }
+        }
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "expected": 0.6,
+      "forcingDensity": 0.75,
+      "history": [
+        0.5
+      ],
+      "opponentFragility": 0.4,
+      "result": {
+        "enemyKingPressure": 0.5,
+        "expected": 0.6,
+        "forcingDensity": 0.75,
+        "materialBalance": -2.0,
+        "opponentFragility": 0.4,
+        "ownKingPressure": 1.0,
+        "phase": 0.5,
+        "tension": 1.0,
+        "trend": 0.9999999999999998
+      },
+      "stats": {
+        "enemyKingAttackers": 1.5,
+        "enemyKingDefenders": 0.0,
+        "materialBalance": -2.0,
+        "ownKingAttackers": 3.0,
+        "ownKingDefenders": 0.0,
+        "phase": 0.5,
+        "tension": 8.0
+      }
+    },
+    {
+      "expected": 0.5,
+      "forcingDensity": 0.0,
+      "history": [],
+      "opponentFragility": 0.0,
+      "result": {
+        "enemyKingPressure": 0.0,
+        "expected": 0.5,
+        "forcingDensity": 0.0,
+        "materialBalance": 0.0,
+        "opponentFragility": 0.0,
+        "ownKingPressure": 0.0,
+        "phase": 0.0,
+        "tension": 0.0,
+        "trend": 0.0
+      },
+      "stats": {
+        "enemyKingAttackers": 0.0,
+        "enemyKingDefenders": 0.0,
+        "materialBalance": 0.0,
+        "ownKingAttackers": 0.0,
+        "ownKingDefenders": 0.0,
+        "phase": 0.0,
+        "tension": 0.0
+      }
+    },
+    {
+      "expected": 0.3,
+      "forcingDensity": 0.2,
+      "history": [
+        0.6,
+        0.55
+      ],
+      "opponentFragility": -0.5,
+      "result": {
+        "enemyKingPressure": 0.8333333333333334,
+        "expected": 0.3,
+        "forcingDensity": 0.2,
+        "materialBalance": 3.0,
+        "opponentFragility": -0.5,
+        "ownKingPressure": 0.16666666666666666,
+        "phase": 0.8,
+        "tension": 0.25,
+        "trend": -1.0
+      },
+      "stats": {
+        "enemyKingAttackers": 2.5,
+        "enemyKingDefenders": 0.0,
+        "materialBalance": 3.0,
+        "ownKingAttackers": 0.5,
+        "ownKingDefenders": 0.0,
+        "phase": 0.8,
+        "tension": 1.0
+      }
+    }
+  ],
+  "features": [
+    "F_T",
+    "F_N",
+    "F_R",
+    "F_C",
+    "F_F",
+    "F_P",
+    "F_K",
+    "F_S",
+    "F_I"
+  ],
+  "fragility": [
+    {
+      "expected": 0.3,
+      "loss": 1.0,
+      "previous": 0.0
+    },
+    {
+      "expected": 0.21,
+      "loss": 0.0,
+      "previous": 0.3
+    },
+    {
+      "expected": 0.3,
+      "loss": 5.0,
+      "previous": 0.0
+    },
+    {
+      "expected": -0.3,
+      "loss": -5.0,
+      "previous": 0.0
+    },
+    {
+      "expected": -0.21999999999999997,
+      "loss": 0.2,
+      "previous": -0.4
+    }
+  ],
+  "inference": [
+    {
+      "dominant": "Coil",
+      "evidence": {
+        "enemyKingPressure": 0.0,
+        "expected": 0.5,
+        "forcingDensity": 0.0,
+        "materialBalance": 0.0,
+        "opponentFragility": 0.0,
+        "ownKingPressure": 0.0,
+        "phase": 0.0,
+        "tension": 0.1,
+        "trend": 0.0
+      },
+      "mix": {
+        "Absorb": 0.09504398759417136,
+        "Coil": 0.5074203799163334,
+        "Distill": 0.22799867367977306,
+        "Fog": 0.0859993563345518,
+        "Reverse": 0.038642001696551964,
+        "Strike": 0.0448956007786185
+      }
+    },
+    {
+      "dominant": "Strike",
+      "evidence": {
+        "enemyKingPressure": 0.9,
+        "expected": 0.6,
+        "forcingDensity": 0.8,
+        "materialBalance": 0.0,
+        "opponentFragility": 0.0,
+        "ownKingPressure": 0.0,
+        "phase": 0.0,
+        "tension": 0.0,
+        "trend": 0.5
+      },
+      "mix": {
+        "Absorb": 0.04483191202207467,
+        "Coil": 0.10489084182827002,
+        "Distill": 0.12186577178468015,
+        "Fog": 0.04483191202207467,
+        "Reverse": 0.016492738741328103,
+        "Strike": 0.6670868236015723
+      }
+    },
+    {
+      "dominant": "Fog",
+      "evidence": {
+        "enemyKingPressure": 0.0,
+        "expected": 0.2,
+        "forcingDensity": 0.0,
+        "materialBalance": 0.0,
+        "opponentFragility": 0.0,
+        "ownKingPressure": 0.0,
+        "phase": 0.0,
+        "tension": 0.1,
+        "trend": 0.0
+      },
+      "mix": {
+        "Absorb": 0.08199548592538397,
+        "Coil": 0.2791262521291442,
+        "Distill": 0.19669694540323057,
+        "Fog": 0.37011251470239476,
+        "Reverse": 0.03333687681294846,
+        "Strike": 0.03873192502689803
+      }
+    },
+    {
+      "dominant": "Distill",
+      "evidence": {
+        "enemyKingPressure": 0.0,
+        "expected": 0.9,
+        "forcingDensity": 0.0,
+        "materialBalance": 0.0,
+        "opponentFragility": 0.0,
+        "ownKingPressure": 0.0,
+        "phase": 0.5,
+        "tension": 0.1,
+        "trend": 0.0
+      },
+      "mix": {
+        "Absorb": 0.04006083768807902,
+        "Coil": 0.1707839386378716,
+        "Distill": 0.6851823143189869,
+        "Fog": 0.05274132167724889,
+        "Reverse": 0.023698203435411423,
+        "Strike": 0.027533384242402016
+      }
+    },
+    {
+      "dominant": "Fog",
+      "evidence": {
+        "enemyKingPressure": 0.0,
+        "expected": 0.2,
+        "forcingDensity": 0.0,
+        "materialBalance": 0.0,
+        "opponentFragility": 0.5,
+        "ownKingPressure": 0.0,
+        "phase": 0.0,
+        "tension": 0.1,
+        "trend": 0.0
+      },
+      "mix": {
+        "Absorb": 0.06459881213750779,
+        "Coil": 0.28236371874181565,
+        "Distill": 0.15496449445628935,
+        "Fog": 0.42425677773796633,
+        "Reverse": 0.04330187872586186,
+        "Strike": 0.03051431820055897
+      }
+    },
+    {
+      "dominant": "Coil",
+      "evidence": {
+        "enemyKingPressure": 0.0,
+        "expected": 0.2,
+        "forcingDensity": 0.0,
+        "materialBalance": 0.0,
+        "opponentFragility": -0.5,
+        "ownKingPressure": 0.0,
+        "phase": 0.0,
+        "tension": 0.1,
+        "trend": 0.0
+      },
+      "mix": {
+        "Absorb": 0.09757456098757829,
+        "Coil": 0.3321600110571183,
+        "Distill": 0.2340692036727874,
+        "Fog": 0.26713647522312517,
+        "Reverse": 0.039670856060058046,
+        "Strike": 0.029388892999332738
+      }
+    },
+    {
+      "dominant": "Coil",
+      "evidence": {
+        "enemyKingPressure": 0.0,
+        "expected": 0.55,
+        "forcingDensity": 0.0,
+        "materialBalance": 2.0,
+        "opponentFragility": 0.0,
+        "ownKingPressure": 0.8,
+        "phase": 0.6,
+        "tension": 0.7,
+        "trend": -0.4
+      },
+      "mix": {
+        "Absorb": 0.3591362224488751,
+        "Coil": 0.3969069086780429,
+        "Distill": 0.03377810722333532,
+        "Fog": 0.020773990889110083,
+        "Reverse": 0.16964393936260524,
+        "Strike": 0.019760831398031264
+      }
+    }
+  ],
+  "planTokens": {
+    "Absorb": "absorb-threat",
+    "Coil": "hold-tension",
+    "Distill": "convert",
+    "Fog": "complicate",
+    "Reverse": "reverse-tension",
+    "Strike": "press-king"
+  },
+  "trend": [
+    {
+      "current": 0.7,
+      "expected": 0.0,
+      "history": []
+    },
+    {
+      "current": 0.6,
+      "expected": 0.9999999999999998,
+      "history": [
+        0.5
+      ]
+    },
+    {
+      "current": 0.5,
+      "expected": -0.9999999999999998,
+      "history": [
+        0.6
+      ]
+    },
+    {
+      "current": 0.55,
+      "expected": 0.5000000000000004,
+      "history": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "current": 0.6,
+      "expected": 0.6666666666666665,
+      "history": [
+        0.4,
+        0.55,
+        0.65
+      ]
+    }
+  ],
+  "variety": [
+    {
+      "forced": false,
+      "posture": "Coil",
+      "temperature": 0.0,
+      "variety": 0
+    },
+    {
+      "forced": false,
+      "posture": "Strike",
+      "temperature": 0.0,
+      "variety": 100
+    },
+    {
+      "forced": false,
+      "posture": "Distill",
+      "temperature": 0.0,
+      "variety": 100
+    },
+    {
+      "forced": true,
+      "posture": "Coil",
+      "temperature": 0.0,
+      "variety": 100
+    },
+    {
+      "forced": false,
+      "posture": "Coil",
+      "temperature": 0.05,
+      "variety": 50
+    },
+    {
+      "forced": false,
+      "posture": "Fog",
+      "temperature": 0.1,
+      "variety": 100
+    },
+    {
+      "forced": false,
+      "posture": "Absorb",
+      "temperature": 0.03,
+      "variety": 30
+    }
+  ],
+  "weights": {
+    "Absorb": {
+      "F_C": 0,
+      "F_F": 2,
+      "F_I": 0,
+      "F_K": 3,
+      "F_N": 1,
+      "F_P": 3,
+      "F_R": 1,
+      "F_S": 1,
+      "F_T": 1
+    },
+    "Coil": {
+      "F_C": 1,
+      "F_F": 2,
+      "F_I": 1,
+      "F_K": 1,
+      "F_N": 2,
+      "F_P": 1,
+      "F_R": 2,
+      "F_S": -1,
+      "F_T": 2
+    },
+    "Distill": {
+      "F_C": 0,
+      "F_F": 1,
+      "F_I": 0,
+      "F_K": 2,
+      "F_N": 0,
+      "F_P": 3,
+      "F_R": 0,
+      "F_S": 3,
+      "F_T": -2
+    },
+    "Fog": {
+      "F_C": 1,
+      "F_F": 1,
+      "F_I": 1,
+      "F_K": 0,
+      "F_N": 3,
+      "F_P": 0,
+      "F_R": 1,
+      "F_S": -3,
+      "F_T": 2
+    },
+    "Reverse": {
+      "F_C": 2,
+      "F_F": 1,
+      "F_I": 2,
+      "F_K": 1,
+      "F_N": 1,
+      "F_P": 1,
+      "F_R": 1,
+      "F_S": -1,
+      "F_T": 1
+    },
+    "Strike": {
+      "F_C": 3,
+      "F_F": 0,
+      "F_I": 3,
+      "F_K": 0,
+      "F_N": 1,
+      "F_P": 0,
+      "F_R": 0,
+      "F_S": -1,
+      "F_T": 1
+    }
+  }
+}
