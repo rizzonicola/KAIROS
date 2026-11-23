@@ -38,9 +38,9 @@ app.innerHTML = `
         <div id="board" class="board" role="grid" aria-label="Chess board"></div>
         <p id="status" class="status" aria-live="polite">Loading the engine…</p>
         <p id="engine-line" class="engine-line"></p>
-        <div id="alert" class="alert" role="alert" hidden>
+        <div id="error-banner" class="alert" role="alert" hidden>
           <p id="alert-text"></p>
-          <button id="alert-action" type="button">Retry</button>
+          <button id="retry" type="button">Retry</button>
         </div>
       </section>
       <aside class="panel">
@@ -76,7 +76,7 @@ app.innerHTML = `
             <button id="flip" type="button">Flip</button>
           </div>
         </div>
-        <ol id="moves" class="moves" aria-label="Move list"></ol>
+        <ol id="move-list" class="moves" aria-label="Move list"></ol>
         <p id="rationale" class="rationale" aria-live="polite"></p>
       </aside>
     </div>
@@ -103,10 +103,10 @@ function element<T extends Element>(selector: string): T {
 const boardEl = element<HTMLDivElement>("#board");
 const statusEl = element<HTMLParagraphElement>("#status");
 const engineLineEl = element<HTMLParagraphElement>("#engine-line");
-const alertEl = element<HTMLDivElement>("#alert");
+const alertEl = element<HTMLDivElement>("#error-banner");
 const alertTextEl = element<HTMLParagraphElement>("#alert-text");
-const alertActionEl = element<HTMLButtonElement>("#alert-action");
-const movesEl = element<HTMLOListElement>("#moves");
+const alertActionEl = element<HTMLButtonElement>("#retry");
+const movesEl = element<HTMLOListElement>("#move-list");
 const rationaleEl = element<HTMLParagraphElement>("#rationale");
 const sideEl = element<HTMLSelectElement>("#side");
 const thinkEl = element<HTMLSelectElement>("#think");
@@ -394,6 +394,9 @@ function statusText(): string {
   }
   if (game.isDraw()) {
     return "Draw.";
+  }
+  if (game.history().length === 0 && game.turn() === playerColor) {
+    return "Ready. Your move.";
   }
   if (game.inCheck()) {
     return game.turn() === playerColor
