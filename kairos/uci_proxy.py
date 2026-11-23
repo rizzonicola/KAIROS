@@ -17,7 +17,15 @@ import threading
 from typing import Optional
 
 from chess_features import board_from_position_command, candidate_features, position_stats
-from postures import POSTURES, PostureController, dominant, one_hot, weighted_features
+from postures import (
+    POSTURES,
+    PostureController,
+    dominant,
+    evidence_from_stats,
+    infer_mix,
+    one_hot,
+    weighted_features,
+)
 
 LOG = logging.getLogger("kairos")
 
@@ -40,6 +48,7 @@ class Candidate:
     score_kind: str
     score_value: int
     wdl: tuple[int, int, int]
+    pv: tuple[str, ...] = ()
 
     @property
     def expected_score(self) -> float:
@@ -143,6 +152,7 @@ def parse_info(line: str) -> Optional[Candidate]:
         score_kind=str(values["score_kind"]),
         score_value=int(values["score_value"]),
         wdl=wdl,
+        pv=tuple(str(move) for move in pv),
     )
 
 
@@ -208,6 +218,8 @@ class KairosProxy:
         self.verbose = False
         self.forced_posture: Optional[str] = None
         self.posture = PostureController()
+        self.expected_history: list[float] = []
+        self.fragility = 0.0
         seed = os.environ.get("KAIROS_SEED", "")
         self.rng = random.Random(int(seed) if seed.lstrip("-").isdigit() else None)
         self.log_stderr = log_stderr
@@ -336,6 +348,8 @@ class KairosProxy:
             return
         if command == "ucinewgame":
             self.posture.reset()
+            self.expected_history = []
+            self.fragility = 0.0
             if self.forced_posture:
                 self.posture.mix = one_hot(self.forced_posture)
             self._send(line)
@@ -529,6 +543,31 @@ class KairosProxy:
 
     def _feature_board(self, search: Search):
         return board_from_position_command(search.position)
+
+    def _update_posture(self, search: Search, baseline: Candidate) -> None:
+        """Infer this move's evidence, then apply hysteresis once per move."""
+        board = self._feature_board(search)
+        stats = position_stats(board)
+        forcing = board.forcing_density(list(baseline.pv)) if board is not None else 0.0
+        evidence = evidence_from_stats(
+            stats,
+            baseline.expected_score,
+            self.expected_history,
+            forcing,
+            self.fragility,
+        )
+        inferred = infer_mix(evidence)
+        mix = self.posture.update(inferred, evidence, forced=self.forced_posture)
+        self.expected_history.append(baseline.expected_score)
+        self.expected_history = self.expected_history[-3:]
+        self._log(
+            "posture=%s conf=%.3f mix=%s expected=%.3f trend=%.3f",
+            dominant(mix),
+            max(mix.values()),
+            {name: round(value, 3) for name, value in mix.items() if value >= 0.01},
+            evidence.expected,
+            evidence.trend,
+        )
 
     def _eligible_candidates(
         self, search: Search
@@ -750,6 +789,9 @@ class KairosProxy:
             self._out(bestmove_line)
             self._search_finished()
             return
+        baseline = next((c for c in search.candidates.values() if c.move == search.sf_best), None)
+        if baseline is not None:
+            self._update_posture(search, baseline)
         mix = self.posture.mix
         search.posture_mix = dict(mix)
         search.posture = dominant(mix)
@@ -806,10 +848,16 @@ class KairosProxy:
                 reason = "candidate-or-baseline-not-returned-by-verifier"
         if accepted and picked is not None:
             f = search.selected_features
+            mix_text = ",".join(
+                f"{name}:{value:.2f}"
+                for name, value in search.posture_mix.items()
+                if value >= 0.01
+            )
             rationale = (
                 f"info string kairos posture={search.posture.upper()} "
-                f"conf={search.confidence:.2f} "
-                f"T={f.get('T', 0)} budget={search.budget_pct:.3f}% "
+                f"conf={search.confidence:.2f} mix={mix_text} "
+                f"T={f.get('T', 0)} N={float(f.get('F_N', 0)):.3f} "
+                f"budget={search.budget_pct:.3f}% "
                 f"loss={verified_loss:.3f}% pick={picked.multipv}/5 "
                 f"sf_best={search.sf_best} "
                 f"F_T={float(f.get('F_T', 0)):.3f} "

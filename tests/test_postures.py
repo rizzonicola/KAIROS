@@ -12,9 +12,11 @@ from postures import (  # noqa: E402
     Evidence,
     PostureController,
     dominant,
+    evidence_from_stats,
     infer_mix,
     one_hot,
     sample_index,
+    score_trend,
     weighted_features,
 )
 
@@ -43,6 +45,29 @@ class WeightTests(unittest.TestCase):
 
 
 class InferenceTests(unittest.TestCase):
+    def test_trend_compares_against_previous_three_moves(self):
+        self.assertEqual(score_trend([], 0.70), 0.0)
+        self.assertAlmostEqual(score_trend([0.50], 0.60), 1.0)
+        self.assertAlmostEqual(score_trend([0.60], 0.50), -1.0)
+        self.assertAlmostEqual(score_trend([0.50, 0.50, 0.50, 0.50], 0.55), 0.5)
+
+    def test_evidence_from_stats_normalizes(self):
+        stats = {
+            "tension": 8.0,
+            "own_king_attackers": 3.0,
+            "enemy_king_attackers": 1.5,
+            "phase": 0.5,
+            "material_balance": -2.0,
+        }
+        evidence = evidence_from_stats(stats, 0.60, [0.50], 0.75, opponent_fragility=0.40)
+        self.assertEqual(evidence.tension, 1.0)
+        self.assertEqual(evidence.own_king_pressure, 1.0)
+        self.assertAlmostEqual(evidence.enemy_king_pressure, 0.5)
+        self.assertEqual(evidence.forcing_density, 0.75)
+        self.assertAlmostEqual(evidence.trend, 1.0)
+        self.assertEqual(evidence.opponent_fragility, 0.40)
+        self.assertEqual(evidence.material_balance, -2.0)
+
     def test_balanced_evidence_prefers_coil(self):
         result = infer_mix(Evidence(expected=0.5, tension=0.1))
         self.assertEqual(dominant(result), "Coil")

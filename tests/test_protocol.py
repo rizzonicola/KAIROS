@@ -169,6 +169,8 @@ class ProtocolTests(unittest.TestCase):
         lines = self.client.read_until(lambda x: x.startswith("bestmove "))
         self.assertEqual(lines[-1], "bestmove c2c4")
         rationale = next(x for x in lines if x.startswith("info string kairos"))
+        self.assertIn("mix=", rationale)
+        self.assertIn("N=1.000", rationale)
         self.assertIn("F_N=1.000", rationale)
         self.assertIn("F_P=0.250", rationale)
         self.assertFalse(any(x.startswith("info depth 3") for x in lines))

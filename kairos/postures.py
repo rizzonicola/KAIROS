@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 import random
-from typing import Mapping, Optional
+from typing import Mapping, Optional, Sequence
 
 POSTURES = ("Coil", "Strike", "Absorb", "Reverse", "Distill", "Fog")
 FEATURES = ("F_T", "F_N", "F_R", "F_C", "F_F", "F_P", "F_K", "F_S", "F_I")
@@ -97,6 +97,35 @@ class Evidence:
     phase: float = 0.0
     opponent_fragility: float = 0.0
     material_balance: float = 0.0
+
+
+def score_trend(history: Sequence[float], current: float) -> float:
+    """Normalized expected-score change versus the previous own moves."""
+    previous = list(history)[-3:]
+    if not previous:
+        return 0.0
+    return clamp((current - sum(previous) / len(previous)) / 0.10, -1.0, 1.0)
+
+
+def evidence_from_stats(
+    stats: Mapping[str, float],
+    expected: float,
+    history: Sequence[float],
+    forcing_density: float,
+    opponent_fragility: float = 0.0,
+) -> Evidence:
+    """Build inference evidence from static stats, own history and PV forcing."""
+    return Evidence(
+        expected=expected,
+        trend=score_trend(history, expected),
+        tension=clamp(stats.get("tension", 0.0) / 4.0, 0.0, 1.0),
+        own_king_pressure=clamp(stats.get("own_king_attackers", 0.0) / 3.0, 0.0, 1.0),
+        enemy_king_pressure=clamp(stats.get("enemy_king_attackers", 0.0) / 3.0, 0.0, 1.0),
+        forcing_density=clamp(forcing_density, 0.0, 1.0),
+        phase=clamp(stats.get("phase", 0.0), 0.0, 1.0),
+        opponent_fragility=clamp(opponent_fragility, -1.0, 1.0),
+        material_balance=float(stats.get("material_balance", 0.0)),
+    )
 
 
 def infer_mix(evidence: Evidence, temperature: float = SOFTMAX_TEMPERATURE) -> dict[str, float]:

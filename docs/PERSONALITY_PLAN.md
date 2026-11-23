@@ -28,7 +28,7 @@ candidate moves, legality, and tactical verification.
 
 ## Milestones
 
-### M1 — Features
+### M1 — Features (done)
 
 Implement the nine features in `kairos/chess_features.py`.
 
@@ -39,7 +39,7 @@ Implement the nine features in `kairos/chess_features.py`.
 - Acceptance: unit tests for each feature; no move generation or legality
   claims; existing 34 tests still pass.
 
-### M2 — Postures
+### M2 — Postures (done)
 
 Add `kairos/postures.py` with the six postures and the specification weight
 table.
@@ -49,7 +49,7 @@ table.
 - Acceptance: weight-table test, forced-posture end-to-end test, Coil remains
   the default and still reranks the existing fixture.
 
-### M3 — Inference, softmax, hysteresis, overrides
+### M3 — Inference, softmax, hysteresis, overrides (done)
 
 - Evidence: expected-score band, trend over the last three own moves, king
   pressure, Tension Index, forcing density in PVs, game phase, Fragility
