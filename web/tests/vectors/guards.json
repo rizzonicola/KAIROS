@@ -160,6 +160,34 @@
       "supported": true
     },
     {
+      "amount": 4,
+      "kind": "depth",
+      "line": "go depth +4",
+      "reason": "supported",
+      "supported": true
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go depth 4.0",
+      "reason": "invalid-depth",
+      "supported": false
+    },
+    {
+      "amount": 2000,
+      "kind": "movetime",
+      "line": "go movetime +2000",
+      "reason": "supported",
+      "supported": true
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go movetime 2000.0",
+      "reason": "invalid-movetime",
+      "supported": false
+    },
+    {
       "amount": 2000,
       "kind": "movetime",
       "line": "go movetime 2000",
@@ -255,6 +283,13 @@
       "kind": "",
       "line": "go ponder",
       "reason": "unsupported-or-clock-search",
+      "supported": false
+    },
+    {
+      "amount": 0,
+      "kind": "",
+      "line": "go searchmoves e2e4",
+      "reason": "multiple-or-missing-limits",
       "supported": false
     },
     {

@@ -27,6 +27,33 @@ const POSTURES = [
   "Fog",
 ] as const;
 
+const MIX_ORDER: Posture[] = [
+  "Coil",
+  "Strike",
+  "Absorb",
+  "Reverse",
+  "Distill",
+  "Fog",
+];
+
+const FEATURE_LABELS = [
+  ["F_T", "Tension"],
+  ["F_N", "Narrowness"],
+  ["F_R", "Reserve"],
+  ["F_C", "Coordination"],
+  ["F_F", "Flexibility"],
+  ["F_P", "Prophylaxis"],
+  ["F_K", "King margin"],
+  ["F_S", "Simplification"],
+  ["F_I", "Initiative"],
+] as const;
+
+const KIND_LABELS: Record<Rationale["kind"], string> = {
+  rerank: "KAIROS rerank",
+  fallback: "Stockfish fallback",
+  stockfish: "Stockfish exact",
+};
+
 app.innerHTML = `
   <main class="shell">
     <header class="masthead">
@@ -77,7 +104,7 @@ app.innerHTML = `
           </div>
         </div>
         <ol id="move-list" class="moves" aria-label="Move list"></ol>
-        <p id="rationale" class="rationale" aria-live="polite"></p>
+        <section id="rationale" class="rationale" aria-live="polite" aria-label="Move rationale"></section>
       </aside>
     </div>
   </main>
@@ -107,7 +134,7 @@ const alertEl = element<HTMLDivElement>("#error-banner");
 const alertTextEl = element<HTMLParagraphElement>("#alert-text");
 const alertActionEl = element<HTMLButtonElement>("#retry");
 const movesEl = element<HTMLOListElement>("#move-list");
-const rationaleEl = element<HTMLParagraphElement>("#rationale");
+const rationaleEl = element<HTMLElement>("#rationale");
 const sideEl = element<HTMLSelectElement>("#side");
 const thinkEl = element<HTMLSelectElement>("#think");
 const styleEl = element<HTMLInputElement>("#style");
@@ -162,6 +189,7 @@ let host: EngineHost;
 let ready = false;
 let engineDisabled = false;
 let thinking = false;
+let stackRestarts = 0;
 let requestCounter = 0;
 let activeRequest = 0;
 let initStartedAt = 0;
@@ -193,6 +221,14 @@ function connect(): void {
   });
   controller.onmessage = (event: MessageEvent<WorkerResponse>) => {
     handleControllerMessage(event.data);
+  };
+  controller.onerror = (event) => {
+    handleControllerFailure(
+      event.message || "The controller stopped unexpectedly.",
+    );
+  };
+  controller.onmessageerror = () => {
+    handleControllerFailure("The controller sent an unreadable message.");
   };
 
   host = new EngineHost(
@@ -239,6 +275,9 @@ function handleControllerMessage(message: WorkerResponse): void {
       if (!message.recoverable) {
         blockEngine(message.message, "retry");
       } else {
+        thinking = false;
+        clearWatchdog();
+        render();
         setStatus(message.message);
       }
       return;
@@ -265,7 +304,8 @@ function clearInitTimer(): void {
 function armWatchdog(milliseconds: number): void {
   clearWatchdog();
   watchdog = window.setTimeout(() => {
-    handleEngineFailure("The engine did not answer in time.");
+    watchdog = null;
+    handleWatchdogTimeout("The engine did not answer in time.");
   }, milliseconds);
 }
 
@@ -274,6 +314,33 @@ function clearWatchdog(): void {
     window.clearTimeout(watchdog);
     watchdog = null;
   }
+}
+
+function handleWatchdogTimeout(message: string): void {
+  if (engineDisabled || !thinking) {
+    return;
+  }
+  post({ type: "stop" });
+  watchdog = window.setTimeout(() => {
+    watchdog = null;
+    if (!thinking || engineDisabled) {
+      return;
+    }
+    if (stackRestarts >= 1) {
+      host.terminate();
+      controller.terminate();
+      blockEngine(message, "retry");
+      return;
+    }
+    stackRestarts += 1;
+    thinking = false;
+    clearInitTimer();
+    host.terminate();
+    controller.terminate();
+    connect();
+    render();
+    setStatus(`${message} Restarting KAIROS…`);
+  }, 2_000);
 }
 
 function handleEngineFailure(message: string): void {
@@ -294,11 +361,34 @@ function handleEngineFailure(message: string): void {
   blockEngine(message, "retry");
 }
 
+function handleControllerFailure(message: string): void {
+  if (engineDisabled) {
+    return;
+  }
+  clearWatchdog();
+  clearInitTimer();
+  thinking = false;
+  ready = false;
+  if (stackRestarts >= 1) {
+    host.terminate();
+    controller.terminate();
+    blockEngine(message, "retry");
+    return;
+  }
+  stackRestarts += 1;
+  host.terminate();
+  controller.terminate();
+  connect();
+  render();
+  setStatus(`${message} Restarting KAIROS…`);
+}
+
 function blockEngine(message: string, action: "retry" | "newgame"): void {
   clearWatchdog();
   clearInitTimer();
   engineDisabled = true;
   thinking = false;
+  newGameEl.disabled = true;
   alertTextEl.textContent = message;
   alertActionEl.textContent = action === "retry" ? "Retry" : "New game";
   alertActionEl.dataset.action = action;
@@ -359,19 +449,55 @@ function handleBestmove(
   render();
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (char) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[char]!,
+  );
+}
+
+function bar(width: number): string {
+  const clamped = Math.max(0, Math.min(100, width));
+  return `<span class="bar" aria-hidden="true"><i style="width:${clamped.toFixed(1)}%"></i></span>`;
+}
+
 function showRationale(rationale: Rationale): void {
-  if (rationale.kind === "rerank") {
-    rationaleEl.textContent =
-      `${rationale.posture} · plan ${rationale.plan} · ` +
-      `loss ${rationale.lossPct.toFixed(2)}% · pick ${rationale.pick} ` +
-      `(Stockfish ${rationale.sfBest})`;
-    return;
-  }
-  if (rationale.kind === "fallback") {
-    rationaleEl.textContent = `Stockfish best · ${rationale.reason}`;
-    return;
-  }
-  rationaleEl.textContent = `Stockfish · ${rationale.reason}`;
+  const mixRows = MIX_ORDER.map((name) => {
+    const value = rationale.mix[name] ?? 0;
+    return `<li><span>${name}</span>${bar(value * 100)}<span class="row-value">${Math.round(value * 100)}%</span></li>`;
+  }).join("");
+  const featureRows = rationale.features
+    ? `<div class="rationale-block"><h3>Features</h3><ul class="bars">` +
+      FEATURE_LABELS.map(([key, label]) => {
+        const value = rationale.features![key];
+        return `<li><span>${label}</span>${bar(((value + 1) / 2) * 100)}<span class="row-value">${value.toFixed(2)}</span></li>`;
+      }).join("") +
+      `</ul></div>`
+    : "";
+  const reason = escapeHtml(rationale.reason.replaceAll("-", " "));
+  rationaleEl.dataset.kind = rationale.kind;
+  rationaleEl.innerHTML = `
+    <div class="rationale-head">
+      <span class="badge badge-${rationale.kind}">${KIND_LABELS[rationale.kind]}</span>
+      <strong>${rationale.posture}</strong>
+      <span class="rationale-plan">${rationale.plan} · ${reason}</span>
+    </div>
+    <p class="rationale-summary">
+      Confidence ${Math.round(rationale.confidence * 100)}% ·
+      budget ${rationale.budgetPct.toFixed(2)}% ·
+      loss ${rationale.lossPct.toFixed(2)}% ·
+      pick ${rationale.pick} ·
+      Stockfish ${escapeHtml(rationale.sfBest || "none")}
+    </p>
+    <div class="rationale-block"><h3>Posture mix</h3><ul class="bars">${mixRows}</ul></div>
+    ${featureRows}`;
 }
 
 function statusText(): string {
@@ -543,11 +669,12 @@ function commitMove(
 }
 
 function newGame(): void {
+  if (engineDisabled) {
+    return;
+  }
   activeRequest = ++requestCounter;
   thinking = false;
   clearWatchdog();
-  hideAlert();
-  engineDisabled = false;
   game = new Chess();
   selected = null;
   lastMove = null;
@@ -587,6 +714,10 @@ promotionEl.addEventListener("cancel", () => {
 });
 
 sideEl.addEventListener("change", () => {
+  if (engineDisabled) {
+    sideEl.value = playerColor;
+    return;
+  }
   playerColor = sideEl.value as "w" | "b";
   flipped = playerColor === "b";
   newGame();
@@ -621,17 +752,20 @@ flipEl.addEventListener("click", () => {
 });
 
 alertActionEl.addEventListener("click", () => {
-  if (alertActionEl.dataset.action === "newgame") {
-    newGame();
-    return;
-  }
+  const resetBoard = alertActionEl.dataset.action === "newgame";
   hideAlert();
   engineDisabled = false;
+  stackRestarts = 0;
+  newGameEl.disabled = false;
   clearWatchdog();
   clearInitTimer();
+  thinking = false;
   host.terminate();
   controller.terminate();
   connect();
+  if (resetBoard) {
+    newGame();
+  }
   render();
 });
 

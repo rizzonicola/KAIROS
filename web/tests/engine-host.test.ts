@@ -77,4 +77,11 @@ describe("EngineHost", () => {
     expect(lines).toHaveLength(0);
     expect(errors).toHaveLength(0);
   });
+
+  it("does not restart after terminate", () => {
+    const { host, workers } = setup();
+    host.terminate();
+    expect(host.restart()).toBe(false);
+    expect(workers).toHaveLength(1);
+  });
 });

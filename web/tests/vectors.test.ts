@@ -11,9 +11,11 @@ import {
   fiftyMoveBlocked,
   isSaturated,
   parseInfo,
+  probeFeatures,
   repetitionBlocked,
   resultBand,
   supportedPersonalitySearch,
+  type ProbeRecord,
 } from "../src/controller";
 import {
   POSTURES,
@@ -243,6 +245,29 @@ describe("Python parity vectors", () => {
         amount: item.amount,
         reason: item.reason,
       });
+    }
+  });
+
+  it("matches Python probe feature formulas", () => {
+    const vectors = load<{
+      cases: {
+        move: string;
+        probeResults: Record<string, ProbeRecord>;
+        nullThreat: number | null;
+        expected: Partial<Features>;
+      }[];
+    }>("probes.json");
+    for (const item of vectors.cases) {
+      const actual = probeFeatures(
+        item.probeResults[item.move],
+        item.nullThreat,
+      );
+      expect(Object.keys(actual).sort(), item.move).toEqual(
+        Object.keys(item.expected).sort(),
+      );
+      for (const key of Object.keys(item.expected) as (keyof Features)[]) {
+        expectClose(actual[key] ?? 0, item.expected[key] ?? 0, `${item.move} ${key}`);
+      }
     }
   });
 

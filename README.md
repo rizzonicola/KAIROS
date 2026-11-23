@@ -66,18 +66,18 @@ STOCKFISH19_EXECUTABLE=/path/to/stockfish ./run_kairos.sh
 
 ## KAIROS Web Lite
 
-`kairos-lite-web-v0.2.0.tar.gz` is the primary browser target: the KAIROS
+`kairos-lite-web-v0.2.1.tar.gz` is the primary browser target: the KAIROS
 personality around Stockfish 19 Lite single-threaded WASM, running entirely in
 the page. It needs no Python, no backend, no `SharedArrayBuffer`, and no
 COOP/COEP headers.
 
 Download it from the
-[v0.2.0 release](https://github.com/rizzonicola/KAIROS/releases/tag/v0.2.0),
+[v0.2.1 release](https://github.com/rizzonicola/KAIROS/releases/tag/v0.2.1),
 extract it, and serve the directory with any static file server:
 
 ```bash
-tar -xzf kairos-lite-web-v0.2.0.tar.gz
-cd kairos-lite-web-v0.2.0
+tar -xzf kairos-lite-web-v0.2.1.tar.gz
+cd kairos-lite-web-v0.2.1
 python3 -m http.server 8000
 ```
 

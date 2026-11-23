@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.2.1 — 2026-11-23
+
+Reliability and transparency fixes for KAIROS Web Lite.
+
+- Controller-worker failures now recreate the whole controller/engine stack
+  once; a second failure blocks the page behind an explicit Retry.
+- The watchdog sends `stop`, waits a two-second grace period, then recreates
+  the stack once before blocking. Retry resets the restart budget.
+- New Game cannot clear a blocked engine or its alert; the button is disabled
+  while the Retry banner is shown, and side changes revert.
+- Recoverable engine errors clear the thinking state and watchdog instead of
+  leaving the page stuck.
+- The rationale panel shows posture, confidence, plan, posture mix, rolling
+  budget, measured loss, selected candidate and the nine personality features.
+- Fallback rationales report the measured expected-score loss, `pick: 1`, and
+  omit features from rejected candidates.
+- `info` parsing accepts `+N` integers and rejects float depth, score and WDL
+  values, matching the Python oracle.
+- Python-generated vectors cover probe feature formulas and the new parser
+  cases.
+- End-to-end parity now includes a real MultiPV rerank and an exact
+  `KairosStyle=0` passthrough against the Python oracle.
+- `EngineHost.restart()` refuses to restart a terminated host.
+- CI downloads the Lite archive under the name recorded in `SHA256SUMS`.
+- README provenance now names `nmrugg/stockfish.js` `v19.0.1` and the Lite
+  network instead of implying the pinned native build.
+
 ## v0.2.0 — 2026-11-23
 
 KAIROS Web Lite, the primary browser target.

@@ -23,6 +23,16 @@ test("plays a move and the engine replies with a rationale", async ({
   });
   await expect(page.locator("#rationale")).toBeVisible();
   await expect(page.locator("#rationale")).not.toBeEmpty();
+  await expect(page.locator("#rationale")).toHaveAttribute(
+    "data-kind",
+    /^(rerank|fallback|stockfish)$/,
+  );
+  await expect(page.locator("#rationale .rationale-summary")).toContainText(
+    "Stockfish",
+  );
+  await expect(
+    page.locator("#rationale .rationale-block").first().locator("li"),
+  ).toHaveCount(6);
 
   const thinkMs = await page.evaluate(
     () =>

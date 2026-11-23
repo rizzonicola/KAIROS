@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "kairos"))
@@ -37,6 +38,7 @@ from postures import (  # noqa: E402
     variety_temperature,
 )
 from uci_proxy import (  # noqa: E402
+    KairosProxy,
     fifty_move_blocked,
     is_saturated,
     parse_info,
@@ -142,6 +144,74 @@ def feature_vectors() -> dict[str, object]:
                 "moves": moves,
                 "stats": camel_stats(position_stats(board)),
                 "features": {move: candidate_features(board, move) for move in moves},
+            }
+        )
+    return {"cases": result}
+
+
+def probe_feature_vectors() -> dict[str, object]:
+    cases = [
+        {
+            "move": "e2e4",
+            "probeResults": {
+                "e2e4": {"best": 0.65, "second": 0.64, "replies": [0.65, 0.64, 0.40]},
+            },
+            "nullThreat": 0.70,
+        },
+        {
+            "move": "e2e4",
+            "probeResults": {
+                "e2e4": {"best": 0.65, "second": 0.50, "replies": [0.65, 0.50, 0.40]},
+            },
+            "nullThreat": None,
+        },
+        {
+            "move": "e2e4",
+            "probeResults": {},
+            "nullThreat": 0.70,
+        },
+        {
+            "move": "e2e4",
+            "probeResults": {
+                "e2e4": {"best": 0.65, "second": None, "replies": []},
+            },
+            "nullThreat": 0.70,
+        },
+        {
+            "move": "e2e4",
+            "probeResults": {
+                "e2e4": {"best": 0.50, "second": 0.10, "replies": [0.50, 0.10]},
+            },
+            "nullThreat": 0.10,
+        },
+        {
+            "move": "e2e4",
+            "probeResults": {
+                "e2e4": {"best": 0.50, "second": 0.10, "replies": [0.50, 0.10]},
+            },
+            "nullThreat": 0.00,
+        },
+        {
+            "move": "e2e4",
+            "probeResults": {
+                "e2e4": {"best": 0.80, "second": 0.80, "replies": [0.80, 0.55, 0.30]},
+            },
+            "nullThreat": 0.90,
+        },
+    ]
+    result = []
+    for case in cases:
+        search = SimpleNamespace(
+            probe_results=case["probeResults"],
+            null_threat=case["nullThreat"],
+        )
+        expected = KairosProxy._probe_features(None, search, case["move"])
+        result.append(
+            {
+                "move": case["move"],
+                "probeResults": case["probeResults"],
+                "nullThreat": case["nullThreat"],
+                "expected": expected,
             }
         )
     return {"cases": result}
@@ -372,6 +442,10 @@ def parse_info_vectors() -> dict[str, object]:
         "info string kairos posture=COIL",
         "info depth 20 multipv 2 score cp -12 wdl 100 800 100 pv g1f3",
         "info depth 20 multipv 3 score mate 4 wdl 1000 0 0 pv e2e4",
+        "info depth +20 seldepth +30 multipv +1 score cp +35 wdl +900 +100 0 pv e2e4",
+        "info depth 20.5 score cp 35 wdl 900 100 0 pv e2e4",
+        "info depth 20 score cp 35.0 wdl 900 100 0 pv e2e4",
+        "info depth 20 score cp 35 wdl 900.5 100 0 pv e2e4",
     ]
     cases = []
     for line in lines:
@@ -447,6 +521,10 @@ def guard_vectors() -> dict[str, object]:
 
     supported_lines = [
         "go depth 4",
+        "go depth +4",
+        "go depth 4.0",
+        "go movetime +2000",
+        "go movetime 2000.0",
         "go movetime 2000",
         "go depth 4 movetime 1000",
         "go movetime 1000 depth 4",
@@ -461,6 +539,7 @@ def guard_vectors() -> dict[str, object]:
         "go depth",
         "go",
         "go ponder",
+        "go searchmoves e2e4",
         "go depth 1",
         "go depth 4 searchmoves e2e4",
     ]
@@ -493,6 +572,7 @@ def all_files() -> dict[str, str]:
         "postures.json": posture_vectors(),
         "parse_info.json": parse_info_vectors(),
         "guards.json": guard_vectors(),
+        "probes.json": probe_feature_vectors(),
     }
     return {
         name: json.dumps(data, indent=2, sort_keys=True) + "\n"

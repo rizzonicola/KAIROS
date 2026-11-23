@@ -9,8 +9,8 @@ backend, no `SharedArrayBuffer`, and no COOP/COEP headers.
 Extract the archive and serve the directory with any static file server:
 
 ```bash
-tar -xzf kairos-lite-web-v0.2.0.tar.gz
-cd kairos-lite-web-v0.2.0
+tar -xzf kairos-lite-web-v0.2.1.tar.gz
+cd kairos-lite-web-v0.2.1
 python3 -m http.server 8000
 ```
 
@@ -30,17 +30,22 @@ Subpaths work because every asset path is relative.
   seed-deterministically.
 - New game resets the board and the rolling budget.
 
-Every engine move carries a rationale. A rerank names the posture, plan and
-verified expected-score loss. A fallback returns Stockfish's exact best move
-and names the guard that fired. No Elo or strength claim is made.
+Every engine move carries a rationale panel: the posture and plan, confidence,
+the posture mix, the rolling budget, the measured expected-score loss, the
+selected candidate, and the nine personality features when a rerank is
+verified. A rerank names the verified loss. A fallback returns Stockfish's
+exact best move and names the guard that fired. No Elo or strength claim is
+made.
 
 ## Engine provenance
 
 The archive bundles `stockfish-19-lite-single.js` and
-`stockfish-19-lite-single.wasm`, built from KAIROS's pinned Stockfish 19 source
-with the Lite single-threaded configuration. Stockfish is licensed under the
-GNU GPL v3; see `LICENSE` and `THIRD_PARTY.md` in the archive. Stockfish is the
-only WebAssembly compute in the page.
+`stockfish-19-lite-single.wasm`, the Lite single-threaded build produced by
+[`nmrugg/stockfish.js`](https://github.com/nmrugg/stockfish.js) `v19.0.1` from
+upstream Stockfish 19. It uses the Lite network (`nn-61e7af4bb97d.nnue`), not
+the original network used by the native KAIROS engine. Stockfish is licensed
+under the GNU GPL v3; see `LICENSE` and `THIRD_PARTY.md` in the archive.
+Stockfish is the only WebAssembly compute in the page.
 
 ## Development
 
@@ -49,13 +54,13 @@ cd web
 npm install
 npm test                 # unit, parity and controller tests
 npm run build            # typecheck and production build
-npm run test:browser     # Playwright smoke tests (after a build)
+npm run test:browser     # Playwright smoke and state-machine tests (after a build)
 ```
 
 Build the release archive from the repository root:
 
 ```bash
-KAIROS_LITE_ENGINE_DIR=/path/to/stockfish-19-lite-single ./scripts/build_web.sh v0.2.0
+KAIROS_LITE_ENGINE_DIR=/path/to/stockfish-19-lite-single ./scripts/build_web.sh v0.2.1
 ```
 
 ## Performance

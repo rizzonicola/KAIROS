@@ -213,6 +213,9 @@ describe("personality pipeline", () => {
       "verification-outside-corridor-or-result-band",
     );
     expect(last.rationale.budgetPct).toBeCloseTo(0.75, 9);
+    expect(last.rationale.lossPct).toBeCloseTo(1.0, 9);
+    expect(last.rationale.pick).toBe(1);
+    expect(last.rationale.features).toBeUndefined();
   });
 
   it("keeps the pawn break near the fifty-move limit", async () => {
@@ -260,6 +263,11 @@ describe("fallbacks", () => {
       expect(best.move).toBe("e1d2");
       expect(best.rationale.kind).toBe("fallback");
       expect(best.rationale.reason).toBe(reason);
+      expect(best.rationale.pick).toBe(1);
+      expect(best.rationale.features).toBeUndefined();
+      if (scenario === "reject-verify") {
+        expect(best.rationale.lossPct).toBeCloseTo(5.0, 9);
+      }
       if (scenario === "saturated-verify" || scenario === "reject-verify") {
         expect(searchmoves(engine)).toContain(
           "go depth 6 searchmoves e1d2 c2c4",

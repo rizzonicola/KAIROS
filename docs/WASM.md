@@ -13,7 +13,7 @@ pipeline. The raw WASM archives remain plain Stockfish engines.
 ## KAIROS Web Lite archive
 
 ```text
-kairos-lite-web-v0.2.0/
+kairos-lite-web-v0.2.1/
   index.html
   assets/                         # page scripts and styles
   engine/stockfish-19-lite-single.js

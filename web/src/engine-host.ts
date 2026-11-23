@@ -30,7 +30,7 @@ export class EngineHost {
 
   /** False on the second consecutive failure; only a full retry resets it. */
   restart(): boolean {
-    if (this.restarts >= 1) {
+    if (!this.active || this.restarts >= 1) {
       return false;
     }
     this.worker.terminate();

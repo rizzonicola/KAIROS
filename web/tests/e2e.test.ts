@@ -53,6 +53,47 @@ const POSITIONS = [
   "position startpos moves e2e4 e7e5",
 ];
 
+interface Case {
+  name: string;
+  position: string;
+  go: string;
+  style: number;
+  expect: "fallback" | "rerank" | "style-zero";
+}
+
+const CASES: Case[] = [
+  {
+    name: "fallback in the tension fixture",
+    position: POSITIONS[0],
+    go: "go depth 5",
+    style: 50,
+    expect: "fallback",
+  },
+  {
+    name: "fallback after 1.e4 e5",
+    position: POSITIONS[1],
+    go: "go depth 5",
+    style: 50,
+    expect: "fallback",
+  },
+  {
+    // Verified against the Python oracle: Style 100 at depth 5 accepts d2d4
+    // over Stockfish's g1f3.
+    name: "real rerank after 1.e4 e6",
+    position: "position startpos moves e2e4 e7e6",
+    go: "go depth 5",
+    style: 100,
+    expect: "rerank",
+  },
+  {
+    name: "style-zero exact passthrough after 1.e4 e6",
+    position: "position startpos moves e2e4 e7e6",
+    go: "go depth 5",
+    style: 0,
+    expect: "style-zero",
+  },
+];
+
 interface Bestmove {
   move: string;
   rationale: Rationale;
@@ -64,7 +105,12 @@ interface Oracle {
   plan: string | null;
 }
 
-function runWeb(enginePath: string, position: string): Promise<Bestmove> {
+function runWeb(
+  enginePath: string,
+  position: string,
+  go: string,
+  style: number,
+): Promise<Bestmove> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(
       () => reject(new Error("web side timed out")),
@@ -87,17 +133,22 @@ function runWeb(enginePath: string, position: string): Promise<Bestmove> {
         engine.onLine = (line) => controller.handleEngineLine(line);
         controller.handleCommand({
           type: "init",
-          options: { style: 50, posture: "Auto", variety: 0 },
+          options: { style, posture: "Auto", variety: 0 },
           seed: 1,
         });
         controller.handleCommand({ type: "position", command: position });
-        controller.handleCommand({ type: "go", command: "go depth 5" });
+        controller.handleCommand({ type: "go", command: go });
       })
       .catch(reject);
   });
 }
 
-function runOracle(enginePath: string, position: string): Promise<Oracle> {
+function runOracle(
+  enginePath: string,
+  position: string,
+  go: string,
+  style: number,
+): Promise<Oracle> {
   return new Promise((resolve, reject) => {
     const child = spawn("python3", [
       PROXY,
@@ -130,8 +181,9 @@ function runOracle(enginePath: string, position: string): Promise<Oracle> {
         stage = 2;
         child.stdin.write(
           "setoption name KairosVerbose value true\n" +
+            `setoption name KairosStyle value ${style}\n` +
             `${position}\n` +
-            "go depth 5\n",
+            `${go}\n`,
         );
         return;
       }
@@ -161,17 +213,36 @@ function runOracle(enginePath: string, position: string): Promise<Oracle> {
 }
 
 describe.skipIf(RUNTIME_JS === null)("same-engine parity", () => {
-  for (const position of POSITIONS) {
+  for (const testCase of CASES) {
     it(
-      `matches the Python oracle for ${position}`,
+      `matches the Python oracle for ${testCase.name}`,
       async () => {
-        const web = await runWeb(RUNTIME_JS!, position);
-        const oracle = await runOracle(RUNTIME_JS!, position);
+        const web = await runWeb(
+          RUNTIME_JS!,
+          testCase.position,
+          testCase.go,
+          testCase.style,
+        );
+        const oracle = await runOracle(
+          RUNTIME_JS!,
+          testCase.position,
+          testCase.go,
+          testCase.style,
+        );
 
         expect(web.move).toBe(oracle.move);
-        if (oracle.posture !== null && oracle.plan !== null) {
+        if (testCase.expect === "rerank") {
+          expect(web.rationale.kind).toBe("rerank");
+          expect(oracle.posture).not.toBeNull();
+          expect(oracle.plan).not.toBeNull();
           expect(web.rationale.posture.toUpperCase()).toBe(oracle.posture);
           expect(web.rationale.plan).toBe(oracle.plan);
+        } else if (testCase.expect === "fallback") {
+          expect(web.rationale.kind).toBe("fallback");
+        } else {
+          expect(web.rationale.kind).toBe("stockfish");
+          expect(web.rationale.reason).toBe("style-zero");
+          expect(oracle.posture).toBeNull();
         }
       },
       TIMEOUT,

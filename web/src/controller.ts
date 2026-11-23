@@ -67,8 +67,8 @@ export function parseInfo(line: string): Candidate | null {
     const token = tokens[i];
     if (["depth", "seldepth", "multipv", "nodes", "nps", "hashfull", "tbhits", "time"].includes(token)) {
       if (i + 1 < tokens.length) {
-        const value = Number(tokens[i + 1]);
-        if (Number.isFinite(value)) {
+        const value = parseIntToken(tokens[i + 1]);
+        if (value !== null) {
           if (token === "multipv") {
             values.multipv = value;
           } else if (token === "depth") {
@@ -85,16 +85,18 @@ export function parseInfo(line: string): Candidate | null {
         return null;
       }
       values.scoreKind = tokens[i + 1];
-      const value = Number(tokens[i + 2]);
-      if (Number.isFinite(value)) {
+      const value = parseIntToken(tokens[i + 2]);
+      if (value !== null) {
         values.scoreValue = value;
       }
       i += 3;
       continue;
     }
     if (token === "wdl" && i + 3 < tokens.length) {
-      const wdl = tokens.slice(i + 1, i + 4).map(Number);
-      if (wdl.every((value) => Number.isFinite(value))) {
+      const wdl = tokens
+        .slice(i + 1, i + 4)
+        .map((value) => parseIntToken(value));
+      if (wdl.every((value): value is number => value !== null)) {
         values.wdl = [wdl[0], wdl[1], wdl[2]];
       }
       i += 4;
@@ -152,7 +154,7 @@ export interface SupportedSearch {
 }
 
 function parseIntToken(raw: string | undefined): number | null {
-  if (raw === undefined || !/^-?\d+$/.test(raw)) {
+  if (raw === undefined || !/^[+-]?\d+$/.test(raw)) {
     return null;
   }
   return Number(raw);
@@ -330,10 +332,32 @@ interface SearchState {
   nullThreat: number | null;
 }
 
-interface ProbeRecord {
+export interface ProbeRecord {
   best: number;
   second: number | null;
   replies: number[];
+}
+
+/** Measured narrowness and prophylaxis; neutral when a probe is missing. */
+export function probeFeatures(
+  record: ProbeRecord | undefined,
+  nullThreat: number | null,
+): Partial<Features> {
+  if (!record || record.replies.length === 0) {
+    return {};
+  }
+  const best = record.best;
+  const near =
+    record.replies.filter((value) => value >= best - 0.05).length /
+    record.replies.length;
+  const second = record.second;
+  const bonus = second !== null && best - second > 0.10 ? 0.5 : 0.0;
+  const narrowness = clamp(1.0 - near + bonus, -1.0, 1.0);
+  let prophylaxis = 0.0;
+  if (nullThreat !== null) {
+    prophylaxis = clamp((nullThreat - best) / 0.20, -1.0, 1.0);
+  }
+  return { F_N: narrowness, F_P: prophylaxis };
 }
 
 interface Scored {
@@ -1043,7 +1067,7 @@ export class KairosController {
     const scored = eligible.map(([candidate, features, lossPct]) => {
       const measured = {
         ...features,
-        ...this.probeFeatures(search, candidate.move),
+        ...this.probeFeatureValues(search, candidate.move),
       };
       // One weight unit is roughly 0.1% expected score; the loss term stays
       // in percentage points and remains dominant.
@@ -1063,27 +1087,11 @@ export class KairosController {
     return scored;
   }
 
-  /** Measured narrowness and prophylaxis; neutral when a probe is missing. */
-  private probeFeatures(
+  private probeFeatureValues(
     search: SearchState,
     move: string,
   ): Partial<Features> {
-    const record = search.probeResults.get(move);
-    if (!record || record.replies.length === 0) {
-      return {};
-    }
-    const best = record.best;
-    const near =
-      record.replies.filter((value) => value >= best - 0.05).length /
-      record.replies.length;
-    const second = record.second;
-    const bonus = second !== null && best - second > 0.10 ? 0.5 : 0.0;
-    const narrowness = clamp(1.0 - near + bonus, -1.0, 1.0);
-    let prophylaxis = 0.0;
-    if (search.nullThreat !== null) {
-      prophylaxis = clamp((search.nullThreat - best) / 0.20, -1.0, 1.0);
-    }
-    return { F_N: narrowness, F_P: prophylaxis };
+    return probeFeatures(search.probeResults.get(move), search.nullThreat);
   }
 
   private probesEnabled(search: SearchState): boolean {
@@ -1373,10 +1381,20 @@ export class KairosController {
       this.finishSearch();
       return;
     }
-    this.emitFallback(search, reason);
+    this.emitFallback(search, reason, verifiedLoss);
   }
 
-  private emitFallback(search: SearchState, reason: string): void {
+  private emitFallback(
+    search: SearchState,
+    reason: string,
+    verifiedLoss?: number,
+  ): void {
+    const measuredLoss =
+      verifiedLoss !== undefined && Number.isFinite(verifiedLoss)
+        ? verifiedLoss
+        : search.selected
+          ? search.selectedLossPct
+          : 0;
     this.search = null;
     if (!search.sfBest) {
       this.emit({
@@ -1409,10 +1427,9 @@ export class KairosController {
         mix,
         plan: search.plan || planToken(posture),
         budgetPct: search.budgetPct,
-        lossPct: 0,
-        pick: search.selected?.multipv ?? 0,
+        lossPct: measuredLoss,
+        pick: 1,
         sfBest: search.sfBest,
-        features: search.selectedFeatures ?? undefined,
       },
       requestId: search.requestId,
     });

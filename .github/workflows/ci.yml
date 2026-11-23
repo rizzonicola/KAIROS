@@ -50,13 +50,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "${RUNNER_TEMP}/kairos-engine"
-          curl -L --fail -o "${RUNNER_TEMP}/kairos-engine/lite.tar.gz" \
+          curl -L --fail -o "${RUNNER_TEMP}/kairos-engine/stockfish-19-lite-single.tar.gz" \
             https://github.com/rizzonicola/KAIROS/releases/download/v0.1.0/stockfish-19-lite-single.tar.gz
           curl -L --fail -o "${RUNNER_TEMP}/kairos-engine/SHA256SUMS" \
             https://github.com/rizzonicola/KAIROS/releases/download/v0.1.0/SHA256SUMS
           cd "${RUNNER_TEMP}/kairos-engine"
           grep 'stockfish-19-lite-single.tar.gz' SHA256SUMS | sha256sum -c -
-          tar -xzf lite.tar.gz
+          tar -xzf stockfish-19-lite-single.tar.gz
 
       - name: Install
         run: cd web && npm ci

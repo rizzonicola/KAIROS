@@ -106,6 +106,36 @@
         ]
       },
       "line": "info depth 20 multipv 3 score mate 4 wdl 1000 0 0 pv e2e4"
+    },
+    {
+      "candidate": {
+        "depth": 20,
+        "move": "e2e4",
+        "multipv": 1,
+        "pv": [
+          "e2e4"
+        ],
+        "scoreKind": "cp",
+        "scoreValue": 35,
+        "wdl": [
+          900,
+          100,
+          0
+        ]
+      },
+      "line": "info depth +20 seldepth +30 multipv +1 score cp +35 wdl +900 +100 0 pv e2e4"
+    },
+    {
+      "candidate": null,
+      "line": "info depth 20.5 score cp 35 wdl 900 100 0 pv e2e4"
+    },
+    {
+      "candidate": null,
+      "line": "info depth 20 score cp 35.0 wdl 900 100 0 pv e2e4"
+    },
+    {
+      "candidate": null,
+      "line": "info depth 20 score cp 35 wdl 900.5 100 0 pv e2e4"
     }
   ]
 }
