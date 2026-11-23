@@ -128,6 +128,36 @@ def evidence_from_stats(
     )
 
 
+FRAGILITY_CLASSES = ("sharp-tactical", "quiet-maneuvering", "defending", "endgame")
+FRAGILITY_ALPHA = 0.3
+MAX_VARIETY_TAU = 0.10
+
+
+def position_class(
+    stats: Mapping[str, float], expected: float, forcing_density: float = 0.0
+) -> str:
+    """Deterministic class used to keep separate opponent-accuracy averages."""
+    if stats.get("phase", 0.0) < 0.25:
+        return "endgame"
+    if stats.get("tension", 0.0) >= 3.0 or forcing_density >= 0.5:
+        return "sharp-tactical"
+    if expected < 0.45 or stats.get("own_king_attackers", 0.0) >= 2.0:
+        return "defending"
+    return "quiet-maneuvering"
+
+
+def update_fragility(previous: float, loss: float, alpha: float = FRAGILITY_ALPHA) -> float:
+    """EWMA of the opponent's expected-score loss in one position class."""
+    return clamp((1.0 - alpha) * previous + alpha * clamp(loss, -1.0, 1.0), -1.0, 1.0)
+
+
+def variety_temperature(variety: int, posture: str, forced: bool) -> float:
+    """Softmax temperature for anti-rigidity; zero keeps the argmax."""
+    if forced or variety <= 0 or posture in ("Strike", "Distill"):
+        return 0.0
+    return MAX_VARIETY_TAU * clamp(variety, 0, 100) / 100.0
+
+
 def infer_mix(evidence: Evidence, temperature: float = SOFTMAX_TEMPERATURE) -> dict[str, float]:
     """Turn observable evidence into a soft posture mix."""
     expected = clamp(evidence.expected, 0.0, 1.0)

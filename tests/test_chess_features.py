@@ -99,6 +99,12 @@ class ChessFeatureTests(unittest.TestCase):
         in_check = Board.from_fen("4k3/8/8/8/8/8/4r3/4K3 w - - 0 1")
         self.assertIsNone(in_check.null_move_fen())
 
+    def test_halfmove_reset_detection(self):
+        board = Board.from_fen("4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 90 1")
+        self.assertTrue(board.resets_halfmove("c2c4"))
+        self.assertTrue(board.resets_halfmove("e4d5"))
+        self.assertFalse(board.resets_halfmove("e1d2"))
+
     def test_probe_features_are_explicit_not_inferred(self):
         board = Board.from_fen("4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1")
         neutral = candidate_features(board, "c2c4")

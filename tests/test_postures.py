@@ -15,8 +15,11 @@ from postures import (  # noqa: E402
     evidence_from_stats,
     infer_mix,
     one_hot,
+    position_class,
     sample_index,
     score_trend,
+    update_fragility,
+    variety_temperature,
     weighted_features,
 )
 
@@ -96,6 +99,32 @@ class InferenceTests(unittest.TestCase):
         fragile = infer_mix(Evidence(expected=0.20, tension=0.1, opponent_fragility=0.5))
         precise = infer_mix(Evidence(expected=0.20, tension=0.1, opponent_fragility=-0.5))
         self.assertGreater(fragile["Fog"], precise["Fog"])
+
+
+class OpponentModelTests(unittest.TestCase):
+    def test_position_classes(self):
+        self.assertEqual(position_class({"phase": 0.10}, 0.50), "endgame")
+        self.assertEqual(position_class({"phase": 0.80, "tension": 3.0}, 0.50), "sharp-tactical")
+        self.assertEqual(position_class({"phase": 0.80, "tension": 0.0}, 0.50, 0.60), "sharp-tactical")
+        self.assertEqual(
+            position_class({"phase": 0.80, "tension": 0.0, "own_king_attackers": 2.0}, 0.50),
+            "defending",
+        )
+        self.assertEqual(position_class({"phase": 0.80}, 0.40), "defending")
+        self.assertEqual(position_class({"phase": 0.80}, 0.55), "quiet-maneuvering")
+
+    def test_fragility_ewma_is_clamped(self):
+        self.assertAlmostEqual(update_fragility(0.0, 1.0), 0.3)
+        self.assertAlmostEqual(update_fragility(0.3, 0.0), 0.21)
+        self.assertEqual(update_fragility(0.0, 5.0), 0.3)
+        self.assertEqual(update_fragility(0.0, -5.0), -0.3)
+
+    def test_variety_temperature_rules(self):
+        self.assertEqual(variety_temperature(0, "Coil", False), 0.0)
+        self.assertEqual(variety_temperature(100, "Strike", False), 0.0)
+        self.assertEqual(variety_temperature(100, "Distill", False), 0.0)
+        self.assertEqual(variety_temperature(100, "Coil", True), 0.0)
+        self.assertAlmostEqual(variety_temperature(50, "Coil", False), 0.05)
 
 
 class ControllerTests(unittest.TestCase):

@@ -59,7 +59,7 @@ table.
 - Acceptance: deterministic unit tests for each rule; verbose line reports
   posture, confidence, mix, T, N, budget, pick, loss.
 
-### M4 — Opponent model and anti-rigidity
+### M4 — Opponent model and anti-rigidity (done)
 
 - Fragility Profile: EWMA of the opponent's expected-score loss by position
   class (sharp-tactical, quiet-maneuvering, defending, endgame), using the
@@ -69,7 +69,7 @@ table.
 - Acceptance: EWMA/class tests; variety=0 is deterministic; variety>0 never
   bypasses verification.
 
-### M5 — Strength guard and time management
+### M5 — Strength guard and time management (done)
 
 - Rolling 10-move budget cap at 2.5x the single-move budget.
 - Repetition and 50-move awareness; skip personality on forced/mate/low-time

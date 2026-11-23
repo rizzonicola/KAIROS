@@ -159,6 +159,10 @@ class Board:
         fullmove = self.fullmove + (1 if self.turn == "b" else 0)
         return Board(tuple(board), next_turn, ordered_rights, ep_square, halfmove, fullmove)
 
+    def resets_halfmove(self, move: str) -> bool:
+        """True when the move is a pawn move or capture (50-move reset)."""
+        return self.apply_uci(move).halfmove == 0
+
     def pawn_lever_count(self) -> int:
         """Count opposing pawn pairs that currently attack one another."""
         white = [i for i, p in enumerate(self.squares) if p == "P"]

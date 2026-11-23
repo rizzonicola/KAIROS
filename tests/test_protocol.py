@@ -12,7 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 WRAPPER = ROOT / "kairos" / "uci_proxy.py"
 MOCK = ROOT / "tests" / "mock_stockfish.py"
 sys.path.insert(0, str(ROOT / "kairos"))
-from uci_proxy import parse_info, supported_personality_search  # noqa: E402
+from uci_proxy import fifty_move_blocked, parse_info, repetition_blocked, supported_personality_search  # noqa: E402
+from chess_features import Board  # noqa: E402
 
 
 class UCIClient:
@@ -201,6 +202,66 @@ class ProtocolTests(unittest.TestCase):
         self.assertIn("go movetime 333", log)
         self.assertIn("go movetime 400 searchmoves e1d2 c2c4", log)
 
+    def test_variety_sampling_is_seeded_and_still_verifies(self):
+        self.client.close()
+        self.client = UCIClient(env={"KAIROS_SEED": "1"})
+        self.client.handshake()
+        self.client.send("setoption name KairosVariety value 100")
+        self.client.send("position fen 4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1")
+        self.client.send("go depth 4")
+        lines = self.client.read_until(lambda x: x.startswith("bestmove "))
+        self.assertEqual(lines[-1], "bestmove c2c4")
+        self.assertIn("searchmoves e1d2 c2c4", self.client.mock_log.read_text(encoding="utf-8"))
+
+        self.client.close()
+        self.client = UCIClient(env={"KAIROS_SEED": "0"})
+        self.client.handshake()
+        self.client.send("setoption name KairosVariety value 100")
+        self.client.send("position fen 4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1")
+        self.client.send("go depth 4")
+        lines = self.client.read_until(lambda x: x.startswith("bestmove "))
+        self.assertEqual(lines[-1], "bestmove e1d2")
+        self.assertNotIn("searchmoves", self.client.mock_log.read_text(encoding="utf-8"))
+
+    def test_cumulative_budget_caps_verification(self):
+        self.client.close()
+        self.client = UCIClient(env={"KAIROS_MOCK_VERIFY_LOSS": "1"})
+        self.client.handshake()
+        self.client.send("setoption name KairosStyle value 100")
+        results = []
+        for _ in range(4):
+            self.client.send("position fen 4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1")
+            self.client.send("go depth 4")
+            results.append(self.client.read_until(lambda x: x.startswith("bestmove "))[-1])
+        self.assertEqual(results[:3], ["bestmove c2c4"] * 3)
+        self.assertEqual(results[3], "bestmove e1d2")
+        mock_log = self.client.mock_log.read_text(encoding="utf-8")
+        self.assertEqual(mock_log.count("searchmoves e1d2 c2c4"), 4)
+        kairos_log = self.client.kairos_log.read_text(encoding="utf-8")
+        self.assertIn("budget=0.750%", kairos_log)
+        self.assertIn("verification-outside-corridor-or-result-band", kairos_log)
+
+    def test_fifty_move_clock_keeps_pawn_break(self):
+        self.client.handshake()
+        self.client.send("position fen 4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 90 1")
+        self.client.send("go depth 4")
+        lines = self.client.read_until(lambda x: x.startswith("bestmove "))
+        self.assertEqual(lines[-1], "bestmove c2c4")
+
+    def test_distill_skips_rerank_when_clearly_winning(self):
+        self.client.close()
+        self.client = UCIClient(env={"KAIROS_MOCK_WINNING": "1"})
+        self.client.handshake()
+        self.client.send("setoption name KairosPosture value Distill")
+        self.client.send("position fen 4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1")
+        self.client.send("go depth 6")
+        lines = self.client.read_until(lambda x: x.startswith("bestmove "))
+        self.assertEqual(lines[-1], "bestmove e1d2")
+        mock_log = self.client.mock_log.read_text(encoding="utf-8")
+        self.assertNotIn("searchmoves", mock_log)
+        self.assertNotIn("go depth 3", mock_log)
+        self.assertIn("distill conversion", self.client.kairos_log.read_text(encoding="utf-8"))
+
     def test_multipv_depth_mismatch_falls_back(self):
         self.client.close()
         self.client = UCIClient(env={"KAIROS_MOCK_DEPTH_MISMATCH": "1"})
@@ -333,6 +394,23 @@ class ProtocolTests(unittest.TestCase):
         self.assertIn("go depth 4 movetime 2000", log)
         self.assertNotIn("setoption name MultiPV value 5", log)
         self.assertNotIn("searchmoves", log)
+
+
+class GuardTests(unittest.TestCase):
+    FEN = "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1"
+
+    def test_fifty_move_guard_blocks_non_resetting_style_move(self):
+        board = Board.from_fen("4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 90 1")
+        self.assertTrue(fifty_move_blocked(board, "e1d2", 0.65))
+        self.assertFalse(fifty_move_blocked(board, "c2c4", 0.65))
+        self.assertFalse(fifty_move_blocked(board, "e1d2", 0.50))
+
+    def test_repetition_guard_blocks_third_occurrence(self):
+        board = Board.from_fen(self.FEN)
+        key = board.apply_uci("c2c4").position_key()
+        self.assertTrue(repetition_blocked(board, "c2c4", {key: 2}, 0.65))
+        self.assertFalse(repetition_blocked(board, "c2c4", {key: 1}, 0.65))
+        self.assertFalse(repetition_blocked(board, "c2c4", {key: 2}, 0.50))
 
 
 class ParseInfoTests(unittest.TestCase):

@@ -15,6 +15,8 @@ saturated_main = os.environ.get("KAIROS_MOCK_SATURATED_MAIN") == "1"
 saturated_verify = os.environ.get("KAIROS_MOCK_SATURATED_VERIFY") == "1"
 bound_main = os.environ.get("KAIROS_MOCK_BOUND") == "1"
 probe_mate = os.environ.get("KAIROS_MOCK_PROBE_MATE") == "1"
+verify_loss = os.environ.get("KAIROS_MOCK_VERIFY_LOSS") == "1"
+winning_main = os.environ.get("KAIROS_MOCK_WINNING") == "1"
 
 
 def log(line: str) -> None:
@@ -73,6 +75,8 @@ for raw in sys.stdin:
             for index, move in enumerate(searchmoves[:2], start=1):
                 if saturated_verify:
                     score, wdl = (540, "1000 0 0") if index == 1 else (400, "1000 0 0")
+                elif verify_loss and index == 2:
+                    score, wdl = 490, "490 300 210"
                 elif index == 1:
                     score, wdl = 20, "500 300 200"
                 elif reject_verify:
@@ -100,7 +104,10 @@ for raw in sys.stdin:
                 emit("info depth 3 seldepth 3 multipv 1 score cp 30 wdl 450 300 250 pv e8e7")
             emit("bestmove e8e7")
         elif multipv > 1 and "4k3/8/8/3p4/4P3/8/2P5" in position:
-            if saturated_main:
+            if winning_main:
+                baseline_score, baseline_wdl = 950, "950 40 10"
+                candidate_score, candidate_wdl = 950, "950 40 10"
+            elif saturated_main:
                 baseline_score, baseline_wdl = 540, "1000 0 0"
                 candidate_score, candidate_wdl = 400, "1000 0 0"
             else:

@@ -16,7 +16,7 @@ import sys
 import threading
 from typing import Optional
 
-from chess_features import board_from_position_command, candidate_features, position_stats
+from chess_features import Board, board_from_position_command, candidate_features, position_stats
 from postures import (
     POSTURES,
     PostureController,
@@ -24,6 +24,10 @@ from postures import (
     evidence_from_stats,
     infer_mix,
     one_hot,
+    position_class,
+    sample_index,
+    update_fragility,
+    variety_temperature,
     weighted_features,
 )
 
@@ -34,10 +38,35 @@ LOG = logging.getLogger("kairos")
 # safety margin, not a Stockfish-defined threshold; calibrate before tuning.
 SATURATION_EXPECTED = 0.99
 SATURATION_CP_MARGIN = 50
+HALFMOVE_ALERT = 90
+DISTILL_SKIP_EXPECTED = 0.90
+BUDGET_WINDOW = 10
+BUDGET_MULTIPLIER = 2.5
 
 
 def is_saturated(expected: float) -> bool:
     return expected >= SATURATION_EXPECTED or expected <= 1.0 - SATURATION_EXPECTED
+
+
+def repetition_blocked(board: Board, move: str, counts: dict[str, int], baseline_expected: float) -> bool:
+    """Avoid a move that would create a third occurrence while better than a draw."""
+    if baseline_expected <= 0.5:
+        return False
+    try:
+        key = board.apply_uci(move).position_key()
+    except ValueError:
+        return False
+    return counts.get(key, 0) >= 2
+
+
+def fifty_move_blocked(board: Board, move: str, baseline_expected: float) -> bool:
+    """Avoid a non-resetting move near the 50-move draw while better than a draw."""
+    if board.halfmove < HALFMOVE_ALERT or baseline_expected <= 0.5:
+        return False
+    try:
+        return not board.resets_halfmove(move)
+    except ValueError:
+        return False
 
 
 @dataclass
@@ -219,7 +248,12 @@ class KairosProxy:
         self.forced_posture: Optional[str] = None
         self.posture = PostureController()
         self.expected_history: list[float] = []
-        self.fragility = 0.0
+        self.fragility_by_class: dict[str, float] = {}
+        self.pending_expectation: Optional[float] = None
+        self.pending_class: Optional[str] = None
+        self.position_counts: dict[str, int] = {}
+        self.last_position_line: Optional[str] = None
+        self.spent_history: list[float] = []
         seed = os.environ.get("KAIROS_SEED", "")
         self.rng = random.Random(int(seed) if seed.lstrip("-").isdigit() else None)
         self.log_stderr = log_stderr
@@ -339,6 +373,7 @@ class KairosProxy:
             return
         if command == "position":
             self.position_line = line
+            self._track_positions(line)
         if self.search is not None and command in ("position", "go", "ucinewgame", "debug", "register"):
             self.deferred.append(line)
             self._request_stop()
@@ -349,13 +384,49 @@ class KairosProxy:
         if command == "ucinewgame":
             self.posture.reset()
             self.expected_history = []
-            self.fragility = 0.0
+            self.fragility_by_class = {}
+            self.pending_expectation = None
+            self.pending_class = None
+            self.position_counts = {}
+            self.last_position_line = None
+            self.spent_history = []
             if self.forced_posture:
                 self.posture.mix = one_hot(self.forced_posture)
             self._send(line)
             return
         # Unknown UCI commands are passed through unchanged.
         self._send(line)
+
+    def _track_positions(self, line: str) -> None:
+        """Count position keys for the repetition guard.
+
+        A move list is recounted from scratch (idempotent); a bare FEN adds its
+        current key because the GUI does not resend the full history.
+        """
+        if line == self.last_position_line:
+            return
+        self.last_position_line = line
+        tokens = line.split()
+        if "moves" not in tokens:
+            board = board_from_position_command(line)
+            if board is not None:
+                key = board.position_key()
+                self.position_counts[key] = self.position_counts.get(key, 0) + 1
+            return
+        move_index = tokens.index("moves")
+        board = board_from_position_command(" ".join(tokens[:move_index]))
+        if board is None:
+            return
+        self.position_counts = {}
+        key = board.position_key()
+        self.position_counts[key] = 1
+        for move in tokens[move_index + 1:]:
+            try:
+                board = board.apply_uci(move)
+            except ValueError:
+                break
+            key = board.position_key()
+            self.position_counts[key] = self.position_counts.get(key, 0) + 1
 
     def _handle_setoption(self, line: str) -> None:
         body = line[len("setoption"):].strip()
@@ -549,24 +620,36 @@ class KairosProxy:
         board = self._feature_board(search)
         stats = position_stats(board)
         forcing = board.forcing_density(list(baseline.pv)) if board is not None else 0.0
+        current_class = position_class(stats, baseline.expected_score, forcing)
+        if self.pending_expectation is not None and self.pending_class is not None:
+            # Previous PV expectation versus this search's expectation.
+            observed = baseline.expected_score - self.pending_expectation
+            self.fragility_by_class[self.pending_class] = update_fragility(
+                self.fragility_by_class.get(self.pending_class, 0.0), observed
+            )
+        fragility = self.fragility_by_class.get(current_class, 0.0)
         evidence = evidence_from_stats(
             stats,
             baseline.expected_score,
             self.expected_history,
             forcing,
-            self.fragility,
+            fragility,
         )
         inferred = infer_mix(evidence)
         mix = self.posture.update(inferred, evidence, forced=self.forced_posture)
         self.expected_history.append(baseline.expected_score)
         self.expected_history = self.expected_history[-3:]
+        self.pending_expectation = baseline.expected_score
+        self.pending_class = current_class
         self._log(
-            "posture=%s conf=%.3f mix=%s expected=%.3f trend=%.3f",
+            "posture=%s conf=%.3f mix=%s expected=%.3f trend=%.3f class=%s fragility=%.3f",
             dominant(mix),
             max(mix.values()),
             {name: round(value, 3) for name, value in mix.items() if value >= 0.01},
             evidence.expected,
             evidence.trend,
+            current_class,
+            fragility,
         )
 
     def _eligible_candidates(
@@ -587,7 +670,17 @@ class KairosProxy:
         baseline_exp = baseline.expected_score
         search.baseline_expected = baseline_exp
         saturated = is_saturated(baseline_exp)
-        budget_pct = 1.5 * self.style / 100.0  # fixed single-move budget from specification
+        single_budget = 1.5 * self.style / 100.0  # fixed single-move budget from specification
+        spent = sum(self.spent_history[-BUDGET_WINDOW:])
+        budget_pct = min(single_budget, max(0.0, BUDGET_MULTIPLIER * single_budget - spent))
+        self._log(
+            "budget single=%.3f%% spent=%.3f%% effective=%.3f%%",
+            single_budget,
+            spent,
+            budget_pct,
+        )
+        if budget_pct <= 0.0:
+            return [], 0.0
         board = self._feature_board(search)
         eligible: list[tuple[Candidate, dict[str, float | int], float]] = []
         for candidate in candidates:
@@ -601,6 +694,13 @@ class KairosProxy:
                 if baseline.score_kind != "cp" or candidate.score_kind != "cp":
                     continue
                 if candidate.score_value < baseline.score_value - SATURATION_CP_MARGIN:
+                    continue
+            if board is not None and candidate.move != sf_best:
+                if repetition_blocked(board, candidate.move, self.position_counts, baseline_exp):
+                    self._log("skip %s: threefold repetition", candidate.move)
+                    continue
+                if fifty_move_blocked(board, candidate.move, baseline_exp):
+                    self._log("skip %s: 50-move clock", candidate.move)
                     continue
             eligible.append((candidate, candidate_features(board, candidate.move), loss_pct))
         return eligible, budget_pct
@@ -751,10 +851,22 @@ class KairosProxy:
             self._out(search.sf_best_line)
             self._search_finished()
             return
-        _score, picked, features, loss_pct = search.scored[0]
+        tau = variety_temperature(self.variety, search.posture, self.forced_posture is not None)
+        if tau > 0:
+            index = sample_index([item[0] for item in search.scored], tau, self.rng)
+            _score, picked, features, loss_pct = search.scored[index]
+            self._log("variety tau=%.3f sampled=%s", tau, picked.move)
+        else:
+            _score, picked, features, loss_pct = search.scored[0]
         baseline_item = next((item for item in search.scored if item[1].move == search.sf_best), None)
-        # Require a strict personality advantage; ties stay with Stockfish.
-        if picked.move == search.sf_best or baseline_item is None or _score <= baseline_item[0] + 1e-12:
+        # Deterministic mode requires a strict personality advantage; ties stay
+        # with Stockfish. Sampled picks still pass through verification below.
+        if picked.move == search.sf_best or baseline_item is None:
+            self._log("no eligible rerank; returning Stockfish best")
+            self._out(search.sf_best_line)
+            self._search_finished()
+            return
+        if tau <= 0 and _score <= baseline_item[0] + 1e-12:
             self._log("no eligible rerank; returning Stockfish best")
             self._out(search.sf_best_line)
             self._search_finished()
@@ -779,6 +891,8 @@ class KairosProxy:
         parts = bestmove_line.split()
         search.sf_best = parts[1] if len(parts) > 1 else ""
         search.sf_best_line = bestmove_line
+        self.spent_history.append(0.0)
+        self.spent_history = self.spent_history[-BUDGET_WINDOW:]
         if search.stop_requested:
             self._log("stopped during main search; returning Stockfish best")
             self._out(bestmove_line)
@@ -792,6 +906,11 @@ class KairosProxy:
         baseline = next((c for c in search.candidates.values() if c.move == search.sf_best), None)
         if baseline is not None:
             self._update_posture(search, baseline)
+        if dominant(self.posture.mix) == "Distill" and baseline is not None and baseline.expected_score >= DISTILL_SKIP_EXPECTED:
+            self._log("distill conversion: clearly winning, returning Stockfish best")
+            self._out(search.sf_best_line)
+            self._search_finished()
+            return
         mix = self.posture.mix
         search.posture_mix = dict(mix)
         search.posture = dominant(mix)
@@ -847,6 +966,8 @@ class KairosProxy:
             else:
                 reason = "candidate-or-baseline-not-returned-by-verifier"
         if accepted and picked is not None:
+            if self.spent_history:
+                self.spent_history[-1] = verified_loss
             f = search.selected_features
             mix_text = ",".join(
                 f"{name}:{value:.2f}"
