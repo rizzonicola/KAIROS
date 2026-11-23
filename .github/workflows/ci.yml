@@ -29,3 +29,50 @@ jobs:
 
       - name: Tests
         run: python3 -m unittest discover -s tests -v
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Vector freshness
+        run: python3 scripts/export_web_vectors.py --check
+
+      - name: Download pinned Lite engine
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/kairos-engine"
+          curl -L --fail -o "${RUNNER_TEMP}/kairos-engine/lite.tar.gz" \
+            https://github.com/rizzonicola/KAIROS/releases/download/v0.1.0/stockfish-19-lite-single.tar.gz
+          curl -L --fail -o "${RUNNER_TEMP}/kairos-engine/SHA256SUMS" \
+            https://github.com/rizzonicola/KAIROS/releases/download/v0.1.0/SHA256SUMS
+          cd "${RUNNER_TEMP}/kairos-engine"
+          grep 'stockfish-19-lite-single.tar.gz' SHA256SUMS | sha256sum -c -
+          tar -xzf lite.tar.gz
+
+      - name: Install
+        run: cd web && npm ci
+
+      - name: Build and package
+        env:
+          KAIROS_LITE_ENGINE_DIR: ${{ runner.temp }}/kairos-engine/stockfish-19-lite-single
+        run: ./scripts/build_web.sh ci
+
+      - name: Tests
+        env:
+          KAIROS_LITE_ENGINE: ${{ github.workspace }}/web/public/engine/stockfish-19-lite-single.js
+        run: cd web && npm test
+
+      - name: Browser smoke
+        run: |
+          cd web
+          npx playwright install --with-deps chromium
+          npm run test:browser

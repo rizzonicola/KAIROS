@@ -48,6 +48,7 @@ jobs:
           cp -r kairos tests scripts docs "dist/${pkg}/"
           cp run_kairos.sh README.md LICENSE THIRD_PARTY.md KAIROS_SPECIFICATION.md "dist/${pkg}/"
           cp build/stockfish19 build/stockfish19-build.txt build/stockfish19-nnue.sha256 "dist/${pkg}/build/"
+          find "dist/${pkg}" -type d -name __pycache__ -prune -exec rm -rf {} +
           cat > "dist/${pkg}/SOURCE.txt" <<EOF
           KAIROS ${TAG}
           ${REPO_URL}
@@ -114,9 +115,44 @@ jobs:
           path: dist/*.tar.gz
           if-no-files-found: error
 
+  web:
+    name: KAIROS Web Lite
+    needs: [wasm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wasm
+          path: ${{ runner.temp }}/wasm
+
+      - name: Extract Lite engine
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/kairos-engine"
+          tar -xzf "${RUNNER_TEMP}/wasm/stockfish-19-lite-single.tar.gz" -C "${RUNNER_TEMP}/kairos-engine"
+
+      - name: Build page
+        env:
+          KAIROS_LITE_ENGINE_DIR: ${{ runner.temp }}/kairos-engine/stockfish-19-lite-single
+        run: ./scripts/build_web.sh "${TAG}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web
+          path: dist/kairos-lite-web-*.tar.gz
+          if-no-files-found: error
+
   publish:
     name: Attach artifacts to release
-    needs: [native, wasm]
+    needs: [native, wasm, web]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8
