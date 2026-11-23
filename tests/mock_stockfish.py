@@ -14,6 +14,7 @@ depth_mismatch = os.environ.get("KAIROS_MOCK_DEPTH_MISMATCH") == "1"
 saturated_main = os.environ.get("KAIROS_MOCK_SATURATED_MAIN") == "1"
 saturated_verify = os.environ.get("KAIROS_MOCK_SATURATED_VERIFY") == "1"
 bound_main = os.environ.get("KAIROS_MOCK_BOUND") == "1"
+probe_mate = os.environ.get("KAIROS_MOCK_PROBE_MATE") == "1"
 
 
 def log(line: str) -> None:
@@ -82,6 +83,22 @@ for raw in sys.stdin:
                 emit(f"info depth {depth} seldepth {depth} multipv {index} score cp {score}"
                      f"{wdl_suffix(wdl)} pv {move} e8e7")
             emit(f"bestmove {searchmoves[0]}")
+        elif len(position.split()) > 3 and position.split()[3] == "b" and "4k3/8/8/3p4" in position:
+            # Child/null probes for the fixture position. WDL encodes the
+            # reply expected scores used by the probe unit tests.
+            if probe_mate and "2PK4" in position:
+                emit("info depth 3 seldepth 3 multipv 1 score mate 2 pv e8e7")
+            elif "2PK4" in position:
+                emit("info depth 3 seldepth 3 multipv 1 score cp 10 wdl 350 300 350 pv e8e7")
+                emit("info depth 3 seldepth 3 multipv 2 score cp 9 wdl 340 300 360 pv e8e8")
+                emit("info depth 3 seldepth 3 multipv 3 score cp 8 wdl 330 300 370 pv e8d8")
+            elif "2P1P3" in position:
+                emit("info depth 3 seldepth 3 multipv 1 score cp 15 wdl 400 300 300 pv e8e7")
+                emit("info depth 3 seldepth 3 multipv 2 score cp 5 wdl 250 300 450 pv e8d8")
+                emit("info depth 3 seldepth 3 multipv 3 score cp 1 wdl 150 300 550 pv e8f8")
+            else:
+                emit("info depth 3 seldepth 3 multipv 1 score cp 30 wdl 450 300 250 pv e8e7")
+            emit("bestmove e8e7")
         elif multipv > 1 and "4k3/8/8/3p4/4P3/8/2P5" in position:
             if saturated_main:
                 baseline_score, baseline_wdl = 540, "1000 0 0"

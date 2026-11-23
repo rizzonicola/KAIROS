@@ -73,6 +73,20 @@ class Search:
     posture_mix: dict[str, float] = field(default_factory=dict)
     posture: str = "Coil"
     confidence: float = 0.0
+    scored: list[tuple[float, Candidate, dict[str, float | int], float]] = field(default_factory=list)
+    probe_enabled: bool = False
+    probe_kind: str = ""
+    probe_moves: list[str] = field(default_factory=list)
+    probe_index: int = 0
+    probe_records: dict[int, Candidate] = field(default_factory=dict)
+    probe_results: dict[str, dict[str, float]] = field(default_factory=dict)
+    probe_mate_seen: bool = False
+    probe_depth: int = 0
+    probe_movetime_ms: int = 0
+    probe_budget_ms: int = 0
+    null_threat: Optional[float] = None
+    main_movetime_ms: int = 0
+    verify_movetime_ms: int = 0
 
 
 def parse_info(line: str) -> Optional[Candidate]:
@@ -441,16 +455,23 @@ class KairosProxy:
                     if score_index + 1 < len(info_tokens) and info_tokens[score_index + 1] == "mate":
                         if current.phase == "main":
                             current.mate_seen = True
+                        elif current.phase == "probe":
+                            current.probe_mate_seen = True
                         else:
                             current.verify_mate_seen = True
                 candidate = parse_info(line)
                 if candidate is not None:
-                    target = current.candidates if current.phase == "main" else current.verify_candidates
+                    if current.phase == "main":
+                        target = current.candidates
+                    elif current.phase == "probe":
+                        target = current.probe_records
+                    else:
+                        target = current.verify_candidates
                     previous = target.get(candidate.multipv)
                     if previous is None or candidate.depth >= previous.depth:
                         target[candidate.multipv] = candidate
-                if current.phase == "verify":
-                    # Internal verification scores must not reach the GUI.
+                if current.phase in ("probe", "verify"):
+                    # Internal probe and verification scores must not reach the GUI.
                     return
             self._out(line)
             return
@@ -458,6 +479,9 @@ class KairosProxy:
         if line.startswith("bestmove "):
             if current.phase == "main" and current.mode == "personality":
                 self._finish_main(line)
+                return
+            if current.phase == "probe":
+                self._finish_probe(line)
                 return
             if current.phase == "verify":
                 self._finish_verification(line)
@@ -495,35 +519,38 @@ class KairosProxy:
             modified_go = go_line
         else:
             search.original_movetime_ms = amount
-            allotted = max(100, int(amount * 0.75))
-            modified_go = re.sub(r"\bmovetime\s+\d+", f"movetime {allotted}", go_line, count=1)
+            main_share = 0.65 if amount >= 3000 else 0.75
+            search.main_movetime_ms = max(100, int(amount * main_share))
+            search.verify_movetime_ms = max(50, int(amount * 0.10))
+            modified_go = re.sub(r"\bmovetime\s+\d+", f"movetime {search.main_movetime_ms}", go_line, count=1)
         self.search = search
         self._log("KAIROS main search style=%d go=%s", self.style, modified_go)
         self._send(modified_go)
 
-    def _choose_candidate(self, search: Search) -> tuple[Optional[Candidate], dict[str, float | int], float, float]:
+    def _feature_board(self, search: Search):
+        return board_from_position_command(search.position)
+
+    def _eligible_candidates(
+        self, search: Search
+    ) -> tuple[list[tuple[Candidate, dict[str, float | int], float]], float]:
+        """Apply the corridor, result band and saturation guards, then score cheaply."""
         candidates = list(search.candidates.values())
         if not candidates:
-            return None, {}, 0.0, 0.0
+            return [], 0.0
         # Only compare candidates from the same completed depth as SF's best.
         sf_best = search.sf_best
         baseline = next((c for c in candidates if c.move == sf_best), None)
         if baseline is None:
-            return None, {}, 0.0, 0.0
+            return [], 0.0
         candidates = [c for c in candidates if c.depth == baseline.depth]
         if len(candidates) < 2 or any(c.score_kind == "mate" for c in candidates):
-            return None, {}, 0.0, 0.0
+            return [], 0.0
         baseline_exp = baseline.expected_score
         search.baseline_expected = baseline_exp
         saturated = is_saturated(baseline_exp)
-        style_scale = self.style / 100.0
-        budget_pct = 1.5 * style_scale  # fixed single-move budget from specification
-        board = board_from_position_command(search.position)
-        mix = self.posture.mix
-        search.posture_mix = dict(mix)
-        search.posture = dominant(mix)
-        search.confidence = max(mix.values())
-        scored: list[tuple[float, Candidate, dict[str, float | int], float]] = []
+        budget_pct = 1.5 * self.style / 100.0  # fixed single-move budget from specification
+        board = self._feature_board(search)
+        eligible: list[tuple[Candidate, dict[str, float | int], float]] = []
         for candidate in candidates:
             loss_pct = max(0.0, (baseline_exp - candidate.expected_score) * 100.0)
             if loss_pct > budget_pct + 1e-9:
@@ -536,23 +563,176 @@ class KairosProxy:
                     continue
                 if candidate.score_value < baseline.score_value - SATURATION_CP_MARGIN:
                     continue
-            features = candidate_features(board, candidate.move)
+            eligible.append((candidate, candidate_features(board, candidate.move), loss_pct))
+        return eligible, budget_pct
+
+    def _probe_features(self, search: Search, move: str) -> dict[str, float]:
+        """Measured narrowness and prophylaxis; neutral when a probe is missing."""
+        record = search.probe_results.get(move)
+        if not record:
+            return {}
+        best = record.get("best")
+        replies = record.get("replies") or []
+        if best is None or not replies:
+            return {}
+        near = sum(1 for value in replies if value >= best - 0.05) / len(replies)
+        second = record.get("second")
+        bonus = 0.5 if second is not None and best - second > 0.10 else 0.0
+        narrowness = max(-1.0, min(1.0, 1.0 - near + bonus))
+        prophylaxis = 0.0
+        if search.null_threat is not None:
+            prophylaxis = max(-1.0, min(1.0, (search.null_threat - best) / 0.20))
+        return {"F_N": narrowness, "F_P": prophylaxis}
+
+    def _score_candidates(
+        self, search: Search, eligible: list[tuple[Candidate, dict[str, float | int], float]]
+    ) -> list[tuple[float, Candidate, dict[str, float | int], float]]:
+        style_scale = self.style / 100.0
+        mix = search.posture_mix
+        scored: list[tuple[float, Candidate, dict[str, float | int], float]] = []
+        for candidate, features, loss_pct in eligible:
+            measured = dict(features)
+            measured.update(self._probe_features(search, candidate.move))
             # One weight unit is roughly 0.1% expected score; the loss term
             # stays in percentage points and remains dominant.
-            personality_pct = style_scale * 0.1 * weighted_features(mix, features)
-            total = -loss_pct + personality_pct
-            scored.append((total, candidate, features, loss_pct))
-        if not scored:
-            return None, {}, budget_pct, 0.0
+            personality_pct = style_scale * 0.1 * weighted_features(mix, measured)
+            scored.append((-loss_pct + personality_pct, candidate, measured, loss_pct))
         scored.sort(key=lambda item: (item[0], -item[1].multipv), reverse=True)
-        _score, picked, features, loss_pct = scored[0]
-        if picked.move == sf_best:
-            return None, features, budget_pct, loss_pct
+        return scored
+
+    def _probes_enabled(self, search: Search) -> bool:
+        if search.go_kind == "depth":
+            return search.main_depth >= 6
+        return search.original_movetime_ms >= 3000
+
+    def _start_probes(self, search: Search) -> bool:
+        board = self._feature_board(search)
+        if board is None or not search.scored:
+            return False
+        moves = [item[1].move for item in search.scored[:4]]
+        if search.sf_best not in moves:
+            moves = (moves[:3] + [search.sf_best]) if len(moves) >= 4 else moves + [search.sf_best]
+        labels: list[str] = []
+        if board.null_move_fen() is not None:
+            labels.append("null")
+        labels.extend(moves)
+        if not labels:
+            return False
+        search.probe_moves = labels
+        search.probe_index = 0
+        search.phase = "probe"
+        if search.go_kind == "depth":
+            search.probe_depth = max(1, search.main_depth - 3)
+        else:
+            search.probe_budget_ms = max(25, int(search.original_movetime_ms * 0.25))
+            search.probe_movetime_ms = max(25, search.probe_budget_ms // len(labels))
+        self._send_probe(search)
+        return True
+
+    def _send_probe(self, search: Search) -> None:
+        label = search.probe_moves[search.probe_index]
+        search.probe_records = {}
+        search.probe_kind = "null" if label == "null" else "candidate"
+        board = self._feature_board(search)
+        if board is None:
+            self._finish_probes(search)
+            return
+        if label == "null":
+            null_fen = board.null_move_fen()
+            if null_fen is None:
+                self._advance_probe(search)
+                return
+            position = f"position fen {null_fen}"
+            multipv = 1
+        else:
+            try:
+                position = f"position fen {board.apply_uci(label).to_fen()}"
+            except ValueError:
+                self._log("probe skipped invalid move %s", label)
+                self._advance_probe(search)
+                return
+            multipv = 3
+        if search.go_kind == "depth":
+            go = f"go depth {search.probe_depth}"
+        else:
+            go = f"go movetime {search.probe_movetime_ms}"
+        self._log("probe %s %s", label, go)
+        self._send(f"setoption name MultiPV value {multipv}")
+        self._send(position)
+        self._send(go)
+
+    def _advance_probe(self, search: Search) -> None:
+        search.probe_index += 1
+        if search.probe_index < len(search.probe_moves):
+            self._send_probe(search)
+        else:
+            self._finish_probes(search)
+
+    def _finish_probe(self, bestmove_line: str) -> None:
+        assert self.search is not None
+        search = self.search
+        label = search.probe_moves[search.probe_index]
+        records = list(search.probe_records.values())
+        if records:
+            deepest = max(c.depth for c in records)
+            records = [c for c in records if c.depth == deepest]
+        if any(c.score_kind == "mate" for c in records):
+            search.probe_mate_seen = True
+        if records and not search.probe_mate_seen:
+            expected = sorted((c.expected_score for c in records), reverse=True)
+            if label == "null":
+                search.null_threat = expected[0]
+            else:
+                search.probe_results[label] = {
+                    "best": expected[0],
+                    "second": expected[1] if len(expected) > 1 else None,
+                    "replies": expected,
+                }
+        if search.stop_requested:
+            self._log("stopped during probe; returning Stockfish best")
+            self._out(search.sf_best_line)
+            self._search_finished()
+            return
+        self._advance_probe(search)
+
+    def _finish_probes(self, search: Search) -> None:
+        if search.stop_requested or search.probe_mate_seen:
+            self._log("probe uncertainty; returning Stockfish best")
+            self._out(search.sf_best_line)
+            self._search_finished()
+            return
+        search.scored = self._score_candidates(
+            search, [(candidate, features, loss) for _score, candidate, features, loss in search.scored]
+        )
+        self._finish_scoring(search)
+
+    def _finish_scoring(self, search: Search) -> None:
+        if not search.scored:
+            self._log("no eligible rerank; returning Stockfish best")
+            self._out(search.sf_best_line)
+            self._search_finished()
+            return
+        _score, picked, features, loss_pct = search.scored[0]
+        baseline_item = next((item for item in search.scored if item[1].move == search.sf_best), None)
         # Require a strict personality advantage; ties stay with Stockfish.
-        baseline_item = next((item for item in scored if item[1].move == sf_best), None)
-        if baseline_item is not None and _score <= baseline_item[0] + 1e-12:
-            return None, features, budget_pct, loss_pct
-        return picked, features, budget_pct, loss_pct
+        if picked.move == search.sf_best or baseline_item is None or _score <= baseline_item[0] + 1e-12:
+            self._log("no eligible rerank; returning Stockfish best")
+            self._out(search.sf_best_line)
+            self._search_finished()
+            return
+        search.selected = picked
+        search.selected_features = features
+        search.selected_loss_pct = loss_pct
+        search.phase = "verify"
+        if search.go_kind == "depth":
+            verify_go = f"go depth {search.main_depth + 2} searchmoves {search.sf_best} {picked.move}"
+        else:
+            verify_ms = search.verify_movetime_ms or max(50, int(search.original_movetime_ms * 0.10))
+            verify_go = f"go movetime {verify_ms} searchmoves {search.sf_best} {picked.move}"
+        self._send("setoption name MultiPV value 2")
+        self._send(search.position)
+        self._log("verify candidate=%s versus sf_best=%s budget=%.3f%%", picked.move, search.sf_best, search.budget_pct)
+        self._send(verify_go)
 
     def _finish_main(self, bestmove_line: str) -> None:
         assert self.search is not None
@@ -570,26 +750,21 @@ class KairosProxy:
             self._out(bestmove_line)
             self._search_finished()
             return
-        selected, features, budget_pct, loss_pct = self._choose_candidate(search)
-        if selected is None:
+        mix = self.posture.mix
+        search.posture_mix = dict(mix)
+        search.posture = dominant(mix)
+        search.confidence = max(mix.values())
+        eligible, budget_pct = self._eligible_candidates(search)
+        if not eligible:
             self._log("no eligible rerank; returning Stockfish best")
             self._out(bestmove_line)
             self._search_finished()
             return
-        search.selected = selected
-        search.selected_features = features
         search.budget_pct = budget_pct
-        search.selected_loss_pct = loss_pct
-        search.phase = "verify"
-        if search.go_kind == "depth":
-            verify_go = f"go depth {search.main_depth + 2} searchmoves {search.sf_best} {selected.move}"
-        else:
-            verify_ms = max(50, int(search.original_movetime_ms * 0.10))
-            verify_go = f"go movetime {verify_ms} searchmoves {search.sf_best} {selected.move}"
-        self._send("setoption name MultiPV value 2")
-        self._send(search.position)
-        self._log("verify candidate=%s versus sf_best=%s budget=%.3f%%", selected.move, search.sf_best, budget_pct)
-        self._send(verify_go)
+        search.scored = self._score_candidates(search, eligible)
+        if self._probes_enabled(search) and self._start_probes(search):
+            return
+        self._finish_scoring(search)
 
     def _finish_verification(self, verify_bestmove_line: str) -> None:
         assert self.search is not None

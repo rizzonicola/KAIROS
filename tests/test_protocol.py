@@ -161,6 +161,44 @@ class ProtocolTests(unittest.TestCase):
         self.assertIn("setoption name MultiPV value 5", log)
         self.assertIn("searchmoves e1d2 c2c4", log)
 
+    def test_depth_search_probes_narrowness_and_prophylaxis(self):
+        self.client.handshake()
+        self.client.send("setoption name KairosVerbose value true")
+        self.client.send("position fen 4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1")
+        self.client.send("go depth 6")
+        lines = self.client.read_until(lambda x: x.startswith("bestmove "))
+        self.assertEqual(lines[-1], "bestmove c2c4")
+        rationale = next(x for x in lines if x.startswith("info string kairos"))
+        self.assertIn("F_N=1.000", rationale)
+        self.assertIn("F_P=0.250", rationale)
+        self.assertFalse(any(x.startswith("info depth 3") for x in lines))
+        log = self.client.mock_log.read_text(encoding="utf-8")
+        self.assertIn("go depth 3", log)
+        self.assertIn("setoption name MultiPV value 3", log)
+        self.assertIn("searchmoves e1d2 c2c4", log)
+
+    def test_probe_mate_score_falls_back_to_stockfish_best(self):
+        self.client.close()
+        self.client = UCIClient(env={"KAIROS_MOCK_PROBE_MATE": "1"})
+        self.client.handshake()
+        self.client.send("position fen 4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1")
+        self.client.send("go depth 6")
+        lines = self.client.read_until(lambda x: x.startswith("bestmove "))
+        self.assertEqual(lines[-1], "bestmove e1d2")
+        log = self.client.mock_log.read_text(encoding="utf-8")
+        self.assertNotIn("searchmoves", log)
+
+    def test_long_movetime_splits_main_probes_and_verification(self):
+        self.client.handshake()
+        self.client.send("position fen 4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1")
+        self.client.send("go movetime 4000")
+        lines = self.client.read_until(lambda x: x.startswith("bestmove "))
+        self.assertEqual(lines[-1], "bestmove c2c4")
+        log = self.client.mock_log.read_text(encoding="utf-8")
+        self.assertIn("go movetime 2600", log)
+        self.assertIn("go movetime 333", log)
+        self.assertIn("go movetime 400 searchmoves e1d2 c2c4", log)
+
     def test_multipv_depth_mismatch_falls_back(self):
         self.client.close()
         self.client = UCIClient(env={"KAIROS_MOCK_DEPTH_MISMATCH": "1"})
