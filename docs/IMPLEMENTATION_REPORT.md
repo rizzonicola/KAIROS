@@ -1,4 +1,4 @@
-# KAIROS implementation report — prototype 0.2
+# KAIROS implementation report — prototype 0.1
 
 ## Executive result
 

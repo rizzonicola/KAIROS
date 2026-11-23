@@ -7,7 +7,7 @@ For bounded analysis searches it asks Stockfish for several near-equal moves,
 then reranks them inside a WDL-based **Soundness Corridor**. Stockfish remains
 the only source of candidate moves, legality, and verification.
 
-> **Status:** prototype 0.2. The engine builds and passes real Stockfish 19
+> **Status:** prototype 0.1. The engine builds and passes real Stockfish 19
 > integration tests. The nine-feature personality, six postures, probe layer,
 > opponent model and strength guards are implemented. Thresholds and time
 > budgets are still uncalibrated, and no Elo claim is made.
