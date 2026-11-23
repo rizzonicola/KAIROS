@@ -7,16 +7,20 @@ For bounded analysis searches it asks Stockfish for several near-equal moves,
 then reranks them inside a WDL-based **Soundness Corridor**. Stockfish remains
 the only source of candidate moves, legality, and verification.
 
-> **Status:** prototype 0.1. The engine builds and passes real Stockfish 19
-> integration tests. The personality features, thresholds, and time model are
-> still incomplete. No Elo claim is made.
+> **Status:** prototype 0.2. The engine builds and passes real Stockfish 19
+> integration tests. The nine-feature personality, six postures, probe layer,
+> opponent model and strength guards are implemented. Thresholds and time
+> budgets are still uncalibrated, and no Elo claim is made.
 
 ## What it is
 
 - A standalone UCI proxy (`kairos/uci_proxy.py`) that runs Stockfish as a child
   process and forces `Threads=1`.
-- A fixed **Coil** posture: prefer tension, avoid unnecessary simplification,
-  keep initiative — but only among moves Stockfish already considers sound.
+- Six postures — **Coil, Strike, Absorb, Reverse, Distill, Fog** — inferred from
+  expected score, trend, king pressure, tension, forcing density, game phase and
+  an opponent Fragility Profile. Coil remains the default and the fallback.
+- Nine normalized features, including measured child-search probes for
+  narrowness (`F_N`) and prophylaxis (`F_P`).
 - `KairosStyle=0` is an exact passthrough: it returns Stockfish's best move.
 
 It is **not** a modified Stockfish, a retrained network, or an anti-cheat tool.
@@ -64,31 +68,47 @@ STOCKFISH19_EXECUTABLE=/path/to/stockfish ./run_kairos.sh
 
 | Option | Default | Meaning |
 |---|---:|---|
-| `KairosStyle` | `50` | `0` disables reranking; `1–100` scales the corridor and feature weights. |
-| `KairosVerbose` | `false` | Emit a one-line `info string` rationale after a verified non-best pick. |
+| `KairosStyle` | `50` | `0` disables reranking; `1–100` scales the corridor, feature weights and time budget. |
+| `KairosPosture` | `Auto` | `Auto`, or force one of `Coil`, `Strike`, `Absorb`, `Reverse`, `Distill`, `Fog`. |
+| `KairosVariety` | `0` | Softmax temperature for near-equal picks; `0` is deterministic. Forced postures and Strike/Distill always stay deterministic. |
+| `KairosVerbose` | `false` | Emit a one-line `info string kairos ...` rationale after a verified non-best pick. |
 
-The posture is fixed to **Coil** in this prototype.
+`KAIROS_SEED` can be set in the environment to make `KairosVariety` sampling
+reproducible. Coil is the default posture and the fallback when inference is
+uncertain.
 
 ## How a move is chosen
 
 For `go depth N`, and for `go movetime M` with `M >= 1500 ms` and exactly one
 limit:
 
-1. Stockfish searches with `MultiPV=5` and WDL enabled.
+1. Stockfish searches with `MultiPV=5` and WDL enabled. For long movetime
+   searches (`M >= 3000 ms`), about 65% goes to the main search, 25% to probes
+   and 10% to verification; short searches keep the 75%/10% split and skip
+   probes.
 2. Candidates must have WDL and an exact (not bound) score at the same depth.
 3. The expected score is `(W + D/2) / 1000`. A candidate is eligible only inside
-   the Coil corridor: `1.5% × KairosStyle/100` expected-score loss.
+   the posture budget: `1.5% × KairosStyle/100` expected-score loss, further
+   capped by the rolling 10-move budget (2.5× the single-move budget).
 4. Candidates in a worse result band are rejected. When WDL is saturated at
    `1000 0 0` or `0 0 1000`, a 50 cp safety margin is also applied.
-5. The feature subset scores the remaining moves:
-   - `F_T` — pawn levers plus absolute pins (a Tension Index proxy).
-   - `F_S` — net captured material minus promotion gain (a simplification proxy).
-   - `F_I` — check, queen capture, or direct attack on the enemy queen.
-6. The best non-Stockfish candidate is re-searched with `searchmoves` at
-   `depth + 2` (or 10% extra movetime) against Stockfish's best.
-7. Any missing data, mate score, bound score, corridor failure, result-band
-   downgrade, stop, timeout, or failed verification falls back to Stockfish's
-   original best move.
+5. The nine features score the remaining moves:
+   - `F_T` tension, `F_R` reserve, `F_C` coordination, `F_F` flexibility,
+     `F_K` king margin, `F_S` simplification, `F_I` initiative — static proxies.
+   - `F_N` narrowness and `F_P` prophylaxis — measured with child searches at
+     `depth - 3` (depth searches with `N >= 6`) or inside the probe budget.
+     Missing or mate-scored probes fall back neutrally or abort the rerank.
+6. Posture evidence is inferred from the position and the opponent model;
+   softmax produces a mix, with two-move hysteresis, immediate Strike/Absorb
+   overrides and a Distill conversion lock. `KairosVariety` can sample among
+   near-equal moves, but never in Strike/Distill or a forced posture.
+7. The pick is re-searched with `searchmoves` at `depth + 2` (or 10% of the
+   original movetime) against Stockfish's best.
+8. Any missing data, mate score, bound score, corridor failure, result-band
+   downgrade, repetition/50-move guard, exhausted budget, stop, timeout, or
+   failed verification falls back to Stockfish's original best move. In Distill
+   with a clearly winning evaluation (`>= 0.90` expected), the wrapper plays
+   Stockfish's best without reranking.
 
 Clock-controlled, infinite, ponder, node/mate-limited, perft, low-movetime, and
 multi-limit searches are passed through without reranking.
@@ -99,7 +119,7 @@ multi-limit searches are passed through without reranking.
 python3 -m unittest discover -s tests -v
 ```
 
-**34 tests:** 28 mock/unit tests and 6 real Stockfish 19 tests. Real tests skip
+**72 tests:** 66 mock/unit tests and 6 real Stockfish 19 tests. Real tests skip
 automatically when `build/stockfish19` is absent. The mock fixture is a protocol
 fixture, not a chess engine.
 
@@ -136,12 +156,15 @@ See [`docs/STOCKFISH_SOURCE_LOCK.md`](docs/STOCKFISH_SOURCE_LOCK.md).
 
 ## Limitations
 
-- `F_T`, `F_S`, and `F_I` are proxies, not full SEE/x-ray/key-file analysis.
-- The 1.5% corridor, 0.45/0.55 result bands, and 50 cp saturation margin are
-  engineering conventions and are not calibrated.
-- No cumulative budget, repetition awareness, or 50-move handling.
-- No adaptive postures, narrowness, reserve, release value, or opponent model.
-- No Elo/SPRT result.
+- The static features are proxies, not full SEE/x-ray/key-file analysis.
+- `F_N` and `F_P` are bounded child-search probes. They are approximate,
+  budget-dependent, and neutral or abortive when data is missing.
+- The 1.5% corridor, 0.45/0.55 result bands, 50 cp saturation margin, 0.90
+  Distill skip, posture thresholds and EWMA constants are engineering
+  conventions and are not calibrated.
+- The opponent model observes only the positions the GUI sends; it is not a
+  full move-history model.
+- No Elo/SPRT result. No strength claim is supported.
 - No independent watchdog if the Stockfish process itself hangs.
 
 ## License and credits

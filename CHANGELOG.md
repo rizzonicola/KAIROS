@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+Personality implementation:
+
+- Nine normalized features: `F_T`, `F_N`, `F_R`, `F_C`, `F_F`, `F_P`, `F_K`,
+  `F_S`, `F_I`. Narrowness and prophylaxis are measured with bounded child
+  searches and fall back neutrally when data is missing.
+- Six postures (`Coil`, `Strike`, `Absorb`, `Reverse`, `Distill`, `Fog`) with
+  the specification weight table, evidence-based softmax inference, two-move
+  hysteresis, immediate Strike/Absorb overrides and a Distill conversion lock.
+- `KairosPosture` and `KairosVariety` UCI options; Coil remains the default.
+- Fragility Profile opponent model (EWMA by position class) and seeded softmax
+  variety sampling, disabled in Strike/Distill and forced postures.
+- Strength guards: rolling 10-move budget cap, third-repetition guard, 50-move
+  reset guard, Distill skip when clearly winning, and the existing corridor,
+  result-band, saturation, mate and verification guards.
+- Long movetime split: 65% main, 25% probes, 10% verification; short searches
+  keep 75% main and skip probes.
+- Verbose rationale now reports posture, confidence, mix, plan token, tension,
+  narrowness, budget, pick, loss and all feature values.
+- Test suite expanded to 72 tests (66 mock/unit, 6 real Stockfish 19).
+
 ## v0.1.0 — 2026-11-22
 
 Initial public prototype.

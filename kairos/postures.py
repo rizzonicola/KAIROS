@@ -30,6 +30,19 @@ SOFTMAX_TEMPERATURE = 0.20
 DISTILL_ENTER = 0.80
 DISTILL_EXIT = 0.65
 
+PLAN_TOKENS = {
+    "Coil": "hold-tension",
+    "Strike": "press-king",
+    "Absorb": "absorb-threat",
+    "Reverse": "reverse-tension",
+    "Distill": "convert",
+    "Fog": "complicate",
+}
+
+
+def plan_token(posture: str) -> str:
+    return PLAN_TOKENS.get(posture, "hold-tension")
+
 
 def clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))

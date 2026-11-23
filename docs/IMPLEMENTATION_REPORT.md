@@ -1,8 +1,8 @@
-# KAIROS implementation report — prototype 0.1
+# KAIROS implementation report — prototype 0.2
 
 ## Executive result
 
-The prototype now runs against a real, locally built official Stockfish 19 (`sf_19`) and has real-engine integration tests. The wrapper remains an independent Python UCI process; Stockfish source, search and NNUE are unmodified.
+The prototype now runs against a real, locally built official Stockfish 19 (`sf_19`) and has real-engine integration tests. The wrapper remains an independent Python UCI process; Stockfish source, search and NNUE are unmodified. The nine-feature personality, six postures, child-search probes, opponent model, variety sampling and strength guards are implemented.
 
 Verified facts:
 
@@ -13,7 +13,7 @@ Verified facts:
 - `Threads=1` is forced; Stockfish emits `info string Using 1 thread`.
 - `KairosStyle=0` matched direct Stockfish exactly at depth 8 from the start position.
 - A real depth-10 rerank was verified: `g1f3` (Stockfish best) → `c2c4`, verification loss `0.0000%`, using `go depth 12 searchmoves g1f3 c2c4`.
-- 34 tests pass: 28 mock/unit tests and 6 real Stockfish 19 tests.
+- 72 tests pass: 66 mock/unit tests and 6 real Stockfish 19 tests.
 
 No Elo or strength claim is made.
 
@@ -42,12 +42,21 @@ No Elo or strength claim is made.
 | Movetime allocation | COMPLETED AND TESTED | `go movetime 2000` becomes main `1500` ms; real search returned in 1.50 s. |
 | WDL-saturation guard | COMPLETED AND TESTED | Old bug position now returns Stockfish best `e4d5`, not the 153 cp worse `e1d2` at depth 10. |
 | Bound-score rejection | COMPLETED AND TESTED | `lowerbound`/`upperbound` scores are not used as exact candidates. |
-| `F_T` tension | PARTIALLY IMPLEMENTED | Pawn levers plus exact absolute pins; no near-zero-SEE captures, x-rays or key files. |
-| `F_S` simplification | PARTIALLY IMPLEMENTED | Net captured material minus promotion gain; not a full exchange/SEE sequence. |
-| `F_I` initiative | PARTIALLY IMPLEMENTED | Check, queen capture, or direct attack on the enemy queen; broader threats missing. |
-| Time controls | PARTIALLY IMPLEMENTED | Clock searches remain direct passthrough; no calibrated time-allocation model. |
-| Adaptive postures | NOT IMPLEMENTED | Fixed Coil only; no softmax, hysteresis, opponent model or plan token. |
-| Cumulative budget / repetition / 50-move | NOT IMPLEMENTED | Per-move corridor only. |
+| `F_T` tension | PARTIALLY IMPLEMENTED AND TESTED | Pawn levers plus exact absolute pins; no near-zero-SEE captures, x-rays or key files. |
+| `F_N` narrowness | IMPLEMENTED AND TESTED | Child MultiPV=3 probe; `1 - near-best share + gap bonus`, neutral on missing data. |
+| `F_R` reserve | IMPLEMENTED AND TESTED | Non-pawn pieces with two safe pseudo-legal destinations. |
+| `F_C` coordination | IMPLEMENTED AND TESTED | Mutual protection, enemy-king-zone attackers and batteries. |
+| `F_F` flexibility | IMPLEMENTED AND TESTED | Safe non-king mobility plus retained pawn breaks. |
+| `F_P` prophylaxis | IMPLEMENTED AND TESTED | Null-move child probe versus the candidate's best reply. |
+| `F_K` king margin | IMPLEMENTED AND TESTED | Own king-zone defenders minus attackers. |
+| `F_S` simplification | PARTIALLY IMPLEMENTED AND TESTED | Net captured material minus promotion gain; not a full exchange/SEE sequence. |
+| `F_I` initiative | PARTIALLY IMPLEMENTED AND TESTED | Check, queen capture, direct queen attack, or king-zone pressure. |
+| Posture engine | IMPLEMENTED AND TESTED | Six postures, spec weight table, softmax evidence, two-move hysteresis, immediate Strike/Absorb overrides, Distill lock. |
+| Opponent model | IMPLEMENTED AND TESTED | EWMA Fragility Profile by position class from previous/current expected score. |
+| Anti-rigidity | IMPLEMENTED AND TESTED | `KairosVariety` softmax sampling, disabled in Strike/Distill and forced postures. |
+| Plan token | IMPLEMENTED AND TESTED | One token per posture, emitted in the verbose rationale. |
+| Cumulative budget / repetition / 50-move | IMPLEMENTED AND TESTED | Rolling 10-move 2.5× cap, third-occurrence guard, 50-move reset guard. |
+| Time controls | PARTIALLY IMPLEMENTED | Clock searches remain direct passthrough; 65/25/10 split for movetime ≥ 3000 ms, 75/10 otherwise. No calibrated clock model. |
 | Elo / SPRT validation | NOT IMPLEMENTED | Requires controlled self-play under identical resources. |
 
 ## Real-engine defects found and fixed
@@ -64,21 +73,26 @@ No Elo or strength claim is made.
 Personality reranking applies to `go depth N` and `go movetime M >= 1500`, with exactly one limit:
 
 1. Request MultiPV=5 from Stockfish; require WDL for every compared candidate.
-2. Build the fixed Coil corridor of `1.5% * KairosStyle/100` expected score.
+2. Build the effective corridor: `1.5% * KairosStyle/100`, capped by the rolling 10-move budget (2.5× the single-move budget).
 3. Reject candidates outside the corridor, in a lower result band, bound-scored, or (when WDL is saturated) more than 50 cp worse.
-4. Score with `F_T=+2`, `F_S=-1`, `F_I=+1` at `0.1%` expected score per weight unit, scaled by style.
-5. Require a strict advantage over Stockfish's best; ties stay with Stockfish.
-6. Verify every non-best pick with `searchmoves` at depth+2 (depth search) or 10% of the original movetime, with MultiPV=2.
-7. Fall back to Stockfish's best on stop, mate, missing data, depth mismatch, corridor/result-band failure, saturation-margin failure, or missing verification records.
+4. Reject style moves that would create a third repetition or fail to reset the 50-move clock while better than a draw.
+5. Score all nine features with the current posture mix at `0.1%` expected score per weight unit, scaled by style.
+6. Probe `F_N`/`F_P` for up to four candidates plus one null move when depth ≥ 6 or movetime ≥ 3000 ms. Probe `info` lines are suppressed.
+7. Infer posture evidence, update the Fragility Profile and apply hysteresis/overrides. `KairosVariety` may sample near-equal candidates; zero in Strike/Distill or a forced posture.
+8. Require a strict advantage over Stockfish's best in deterministic mode; ties stay with Stockfish.
+9. Verify every non-best pick with `searchmoves` at depth+2 (depth search) or 10% of the original movetime, with MultiPV=2.
+10. Fall back to Stockfish's best on stop, mate, missing data, depth mismatch, corridor/result-band failure, saturation-margin failure, exhausted budget, probe mate, repetition/50-move guard, or missing verification records.
+11. In Distill with expected score `>= 0.90`, play Stockfish's best without reranking.
 
 Clock-controlled, ponder, infinite, node/mate-limited, perft, low-movetime and multi-limit searches are passthroughs.
 
 ## Test results
 
-### Mock/unit suite — 28 passed
+### Mock/unit suite — 66 passed
 
-- `tests/test_chess_features.py` (8): FEN/history, castling, promotion, pawn levers, absolute pins, promotion-aware simplification, check and queen-threat initiative.
-- `tests/test_protocol.py` (20): handshake/Threads/WDL option, identity refusal, neutral passthrough, rerank/verify, depth mismatch, mate, missing WDL, verification rejection, movetime allocation, clock passthrough, stop/quit, batched handshake ordering, bound rejection, main and verification saturation, verification-info suppression, multi-limit bypass, `parse_info` and limit parsing.
+- `tests/test_chess_features.py` (15): FEN/history, castling, promotion, pawn levers, absolute pins, promotion-aware simplification, check and queen-threat initiative, reserve, coordination, pawn breaks, king margin, phase, null-move FEN, probe fallback and halfmove reset.
+- `tests/test_postures.py` (19): specification weight table, softmax/dominant mix, evidence inference, trend, EWMA Fragility Profile, position classes, hysteresis, immediate overrides, Distill lock, plan tokens, variety temperature and sampling.
+- `tests/test_protocol.py` (32): handshake/Threads/WDL options, identity refusal, neutral passthrough, rerank/verify, depth mismatch, mate, missing WDL, verification rejection, movetime allocation, long movetime split, probes, probe-mate fallback, clock passthrough, stop/quit, batched handshake ordering, bound rejection, main and verification saturation, verification-info suppression, cumulative budget, 50-move guard, repetition guard, Distill skip, variety seeding, multi-limit bypass, `parse_info` and limit parsing.
 
 ### Real Stockfish 19 suite — 6 passed
 
@@ -91,7 +105,7 @@ Clock-controlled, ponder, infinite, node/mate-limited, perft, low-movetime and m
 - Movetime reservation: `go movetime 2000` → main `go movetime 1500`, returned in 1.50 s.
 - Real `go infinite` → `stop` → `bestmove`, then `quit` exit code 0.
 
-Full suite: `Ran 34 tests in 6.259s — OK`.
+Full suite: `Ran 72 tests in 6.933s — OK`.
 
 ## Validation commands
 
@@ -119,22 +133,22 @@ The lite artifacts are separate browser/Node.js builds; they are not the validat
 
 1. `F_T` is not the full Tension Index: near-zero-SEE captures, x-rays and contested key files are missing. Absolute pins are exact only for the current position, not future lines.
 2. `F_S` is a material-delta proxy, not an exchange sequence or full SEE.
-3. `F_I` covers checks, queen captures and direct queen attacks only.
-4. The 1.5% corridor, 0.45/0.55 result bands and 50 cp saturation margin are engineering conventions and have not been calibrated against a scenario suite.
-5. Verification at depth+2 or 10% movetime is a safety check, not proof of soundness.
-6. Clock-controlled searches bypass personality; no time-allocation model exists.
-7. No cumulative 10-move budget, repetition awareness or 50-move-rule handling.
-8. Only the fixed Coil posture exists; no posture inference, softmax, hysteresis, conversion lock, opponent model or plan token.
-9. No Narrowness, Reserve, Release Value, prophylaxis or full coordination features.
+3. `F_I` covers checks, queen captures, direct queen attacks and king-zone pressure only.
+4. `F_N`/`F_P` depend on bounded child searches. Probe depth, movetime share and the 5%/10% thresholds are engineering conventions; missing data falls back neutrally, and a probe mate aborts the rerank.
+5. The 1.5% corridor, 0.45/0.55 result bands, 50 cp saturation margin, 0.90 Distill skip, posture thresholds and EWMA constants are engineering conventions and have not been calibrated against a scenario suite.
+6. Verification at depth+2 or 10% movetime is a safety check, not proof of soundness.
+7. Clock-controlled searches bypass personality; no calibrated clock-allocation model exists.
+8. The opponent model only sees positions supplied by the GUI and uses the previous root expectation as its reference; it is not a full move-history model.
+9. `KairosVariety` is seeded but not strength-tested; sampling can choose a lower-scoring move inside the corridor, which then must pass verification.
 10. No Elo/SPRT benchmark; no strength claim is supported.
 11. The binary hash is build-dependent. Real tests are calibrated to this pinned build and skip when it is absent.
-12. Movetime verification was not observed in the tested 2 s position because Stockfish's 1.5 s best move was already the Coil candidate; the depth-search test covers the real verification path.
-13. There is no independent watchdog if the Stockfish subprocess itself hangs; verification relies on Stockfish's bounded depth/movetime and the `stop` path.
+12. There is no independent watchdog if the Stockfish subprocess itself hangs; verification relies on Stockfish's bounded depth/movetime and the `stop` path.
+13. WASM artifacts are separate builds and are not covered by the native personality tests.
 
 ## Next five prioritized tasks
 
-1. **Calibrate the corridor and guards** on a curated scenario suite with real Stockfish 19: measure rerank rate, accepted/rejected verification rate, movetime behavior, and tune the 1.5% budget, 0.45/0.55 bands and 50 cp saturation margin. Do not widen the corridor merely to increase reranks.
+1. **Calibrate the corridor and guards** on a curated scenario suite with real Stockfish 19: measure rerank rate, accepted/rejected verification rate, probe latency, movetime behavior, and tune the 1.5% budget, 0.45/0.55 bands, 50 cp saturation margin and probe thresholds. Do not widen the corridor merely to increase reranks.
 2. **Complete reliable Tension Index components**: near-zero-SEE captures, x-rays and key-file tension, each with direct tests. Only then extend `F_S` to exchange sequences and `F_I` to broader forcing moves.
-3. **Add cumulative budget, repetition and 50-move awareness** with explicit tests, so repeated style choices cannot silently spend more than the intended rolling budget.
-4. **Measure and then add Narrowness/Reserve probes** using child MultiPV searches; record latency and rerank impact before enabling them.
-5. **Run controlled self-play/SPRT** against Stockfish 19 with identical threads, hash and time controls. Only after that consider posture inference and any strength claim.
+3. **Run controlled self-play/SPRT** against Stockfish 19 with identical threads, hash and time controls. Report results only when the run is complete.
+4. **Validate WASM artifacts** on the official and Lite builds, including `SHA256SUMS`, browser smoke tests and cross-origin isolation notes.
+5. **Consider a calibrated clock-allocation model** for clock-controlled games; until then those searches remain passthroughs.

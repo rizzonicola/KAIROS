@@ -78,7 +78,7 @@ table.
   short searches where probes would be unreliable.
 - Acceptance: budget cap, repetition, 50-move, and time-split tests.
 
-### M6 — Logging and documentation
+### M6 — Logging and documentation (done)
 
 - One-line `info string kairos ...` rationale with posture, confidence, mix,
   T, N, budget, pick, loss, and feature values.

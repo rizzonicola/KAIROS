@@ -171,6 +171,7 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(lines[-1], "bestmove c2c4")
         rationale = next(x for x in lines if x.startswith("info string kairos"))
         self.assertIn("mix=", rationale)
+        self.assertIn("plan=hold-tension", rationale)
         self.assertIn("N=1.000", rationale)
         self.assertIn("F_N=1.000", rationale)
         self.assertIn("F_P=0.250", rationale)

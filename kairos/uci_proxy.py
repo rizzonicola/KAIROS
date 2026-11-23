@@ -24,6 +24,7 @@ from postures import (
     evidence_from_stats,
     infer_mix,
     one_hot,
+    plan_token,
     position_class,
     sample_index,
     update_fragility,
@@ -110,6 +111,7 @@ class Search:
     side: str = ""
     posture_mix: dict[str, float] = field(default_factory=dict)
     posture: str = "Coil"
+    plan: str = ""
     confidence: float = 0.0
     scored: list[tuple[float, Candidate, dict[str, float | int], float]] = field(default_factory=list)
     probe_enabled: bool = False
@@ -914,6 +916,7 @@ class KairosProxy:
         mix = self.posture.mix
         search.posture_mix = dict(mix)
         search.posture = dominant(mix)
+        search.plan = plan_token(search.posture)
         search.confidence = max(mix.values())
         eligible, budget_pct = self._eligible_candidates(search)
         if not eligible:
@@ -976,7 +979,7 @@ class KairosProxy:
             )
             rationale = (
                 f"info string kairos posture={search.posture.upper()} "
-                f"conf={search.confidence:.2f} mix={mix_text} "
+                f"conf={search.confidence:.2f} mix={mix_text} plan={search.plan} "
                 f"T={f.get('T', 0)} N={float(f.get('F_N', 0)):.3f} "
                 f"budget={search.budget_pct:.3f}% "
                 f"loss={verified_loss:.3f}% pick={picked.multipv}/5 "

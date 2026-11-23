@@ -15,6 +15,7 @@ from postures import (  # noqa: E402
     evidence_from_stats,
     infer_mix,
     one_hot,
+    plan_token,
     position_class,
     sample_index,
     score_trend,
@@ -45,6 +46,11 @@ class WeightTests(unittest.TestCase):
         self.assertAlmostEqual(weighted_features(coil, {"F_T": 0.25}), 0.5)
         self.assertAlmostEqual(weighted_features(coil, {"F_S": 0.5}), -0.5)
         self.assertAlmostEqual(weighted_features(coil, {"F_I": 1.0}), 1.0)
+
+    def test_plan_tokens_follow_posture(self):
+        self.assertEqual(plan_token("Coil"), "hold-tension")
+        self.assertEqual(plan_token("Distill"), "convert")
+        self.assertEqual(plan_token("unknown"), "hold-tension")
 
 
 class InferenceTests(unittest.TestCase):
