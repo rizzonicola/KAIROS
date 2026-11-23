@@ -85,7 +85,7 @@ table.
 - Update README, `docs/IMPLEMENTATION_REPORT.md`, and `CHANGELOG.md`.
 - Acceptance: README matches the implemented options and limitations.
 
-### M7 — Validation
+### M7 — Validation (done)
 
 - Scenario suite of curated positions with expected posture/behaviour.
 - Safety checks: no result-band downgrade, no mate rerank, verification on

@@ -20,7 +20,10 @@ Personality implementation:
   keep 75% main and skip probes.
 - Verbose rationale now reports posture, confidence, mix, plan token, tension,
   narrowness, budget, pick, loss and all feature values.
-- Test suite expanded to 72 tests (66 mock/unit, 6 real Stockfish 19).
+- Test suite expanded to 84 tests (78 mock/unit, 6 real Stockfish 19).
+- Scenario runner (`scripts/run_scenarios.py`) with recorded safety results in
+  `docs/SCENARIO_RESULTS.md`; optional `scripts/sprt.sh` harness. No Elo result
+  is claimed.
 
 ## v0.1.0 — 2026-11-22
 

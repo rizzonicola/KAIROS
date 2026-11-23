@@ -13,7 +13,7 @@ Verified facts:
 - `Threads=1` is forced; Stockfish emits `info string Using 1 thread`.
 - `KairosStyle=0` matched direct Stockfish exactly at depth 8 from the start position.
 - A real depth-10 rerank was verified: `g1f3` (Stockfish best) → `c2c4`, verification loss `0.0000%`, using `go depth 12 searchmoves g1f3 c2c4`.
-- 72 tests pass: 66 mock/unit tests and 6 real Stockfish 19 tests.
+- 84 tests pass: 78 mock/unit tests and 6 real Stockfish 19 tests. A separate scenario runner records behavioural safety results; no Elo result is claimed.
 
 No Elo or strength claim is made.
 
@@ -88,11 +88,12 @@ Clock-controlled, ponder, infinite, node/mate-limited, perft, low-movetime and m
 
 ## Test results
 
-### Mock/unit suite — 66 passed
+### Mock/unit suite — 78 passed
 
 - `tests/test_chess_features.py` (15): FEN/history, castling, promotion, pawn levers, absolute pins, promotion-aware simplification, check and queen-threat initiative, reserve, coordination, pawn breaks, king margin, phase, null-move FEN, probe fallback and halfmove reset.
 - `tests/test_postures.py` (19): specification weight table, softmax/dominant mix, evidence inference, trend, EWMA Fragility Profile, position classes, hysteresis, immediate overrides, Distill lock, plan tokens, variety temperature and sampling.
 - `tests/test_protocol.py` (32): handshake/Threads/WDL options, identity refusal, neutral passthrough, rerank/verify, depth mismatch, mate, missing WDL, verification rejection, movetime allocation, long movetime split, probes, probe-mate fallback, clock passthrough, stop/quit, batched handshake ordering, bound rejection, main and verification saturation, verification-info suppression, cumulative budget, 50-move guard, repetition guard, Distill skip, variety seeding, multi-limit bypass, `parse_info` and limit parsing.
+- `tests/test_validation.py` (12): scenario definitions, log-chunk parsing, safety checks (unverified rerank, pick/bestmove mismatch, budget overflow, mate/Distill rerank) and results rendering.
 
 ### Real Stockfish 19 suite — 6 passed
 
@@ -105,7 +106,13 @@ Clock-controlled, ponder, infinite, node/mate-limited, perft, low-movetime and m
 - Movetime reservation: `go movetime 2000` → main `go movetime 1500`, returned in 1.50 s.
 - Real `go infinite` → `stop` → `bestmove`, then `quit` exit code 0.
 
-Full suite: `Ran 72 tests in 6.933s — OK`.
+Full suite: `Ran 84 tests in 6.946s — OK`.
+
+## Scenario validation
+
+`python3 scripts/run_scenarios.py` runs eight curated positions against the pinned engine with `ucinewgame` isolation. Results are recorded in `docs/SCENARIO_RESULTS.md`; the runner exits non-zero on any safety violation. The Queen's Gambit scenario produced a real verified rerank (`g1f3` → `c2c4`, loss `0.000%`, budget `0.750%`). Mate-in-one and forced Distill returned Stockfish's move without reranking.
+
+`scripts/sprt.sh` provides the optional cutechess-cli match (Threads=1, Hash=32, SPRT `elo0=0`, `elo1=5`). It has not been run; no Elo result is claimed.
 
 ## Validation commands
 

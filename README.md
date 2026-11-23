@@ -119,9 +119,12 @@ multi-limit searches are passed through without reranking.
 python3 -m unittest discover -s tests -v
 ```
 
-**72 tests:** 66 mock/unit tests and 6 real Stockfish 19 tests. Real tests skip
+**84 tests:** 78 mock/unit tests and 6 real Stockfish 19 tests. Real tests skip
 automatically when `build/stockfish19` is absent. The mock fixture is a protocol
 fixture, not a chess engine.
+
+Behavioural scenario checks and the optional SPRT harness are described in
+[`docs/VALIDATION.md`](docs/VALIDATION.md). No Elo result is claimed.
 
 ## Release artifacts
 
