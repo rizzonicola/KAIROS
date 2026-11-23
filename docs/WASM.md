@@ -5,6 +5,29 @@ personality layer. They are useful for web/Node.js frontends that need a local
 engine. The native KAIROS wrapper still requires Python and a native Stockfish
 binary.
 
+The separate `kairos-lite-web-<tag>.tar.gz` archive **is** the KAIROS personality
+page for the browser. It wraps the `stockfish-19-lite-single` engine in the
+TypeScript implementation of the same feature, posture, guard and verification
+pipeline. The raw WASM archives remain plain Stockfish engines.
+
+## KAIROS Web Lite archive
+
+```text
+kairos-lite-web-v0.2.0/
+  index.html
+  assets/                         # page scripts and styles
+  engine/stockfish-19-lite-single.js
+  engine/stockfish-19-lite-single.wasm
+  README-WEB.md
+  LICENSE
+  THIRD_PARTY.md
+```
+
+Serve the extracted directory over HTTP with any static server; opening
+`index.html` from the filesystem does not load the WebAssembly engine. All asset
+paths are relative, so subpaths work. The page requires no COOP/COEP headers and
+no `SharedArrayBuffer`.
+
 ## Flavors
 
 | Flavor | Source | Threads | Network | Cross-origin isolation |

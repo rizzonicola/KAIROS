@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.2.0 — 2026-11-23
+
+KAIROS Web Lite, the primary browser target.
+
+- Standalone TypeScript page running the KAIROS personality around Stockfish 19
+  Lite single-threaded WASM; no Python, backend, `SharedArrayBuffer`, or
+  COOP/COEP.
+- Full native pipeline in the browser: MultiPV rerank, Soundness Corridor,
+  result-band and WDL-saturation guards, optional probes, `searchmoves`
+  verification, rolling budget, repetition and 50-move guards, Distill skip,
+  seeded variety.
+- `KairosStyle=0` remains an exact Stockfish bestmove passthrough.
+- Structured rationale for every engine move, including fallbacks and
+  passthroughs; stale-result filtering with request ids.
+- Python parity vectors, a scripted controller suite, same-engine end-to-end
+  tests against the Python oracle, and a Playwright browser smoke test.
+- Release asset `kairos-lite-web-v0.2.0.tar.gz`; native archive no longer
+  contains `__pycache__`.
+
 ## v0.1.0 — 2026-11-23
 
 First public release.

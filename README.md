@@ -7,10 +7,10 @@ For bounded analysis searches it asks Stockfish for several near-equal moves,
 then reranks them inside a WDL-based **Soundness Corridor**. Stockfish remains
 the only source of candidate moves, legality, and verification.
 
-> **Status:** prototype 0.1. The engine builds and passes real Stockfish 19
-> integration tests. The nine-feature personality, six postures, probe layer,
-> opponent model and strength guards are implemented. Thresholds and time
-> budgets are still uncalibrated, and no Elo claim is made.
+> **Status:** prototype 0.2. The native proxy and the standalone KAIROS Web Lite
+> browser page both pass their test suites. The nine-feature personality, six
+> postures, probe layer, opponent model and strength guards are implemented.
+> Thresholds and time budgets are still uncalibrated, and no Elo claim is made.
 
 ## What it is
 
@@ -63,6 +63,30 @@ Use an existing Stockfish 19 binary instead:
 ```bash
 STOCKFISH19_EXECUTABLE=/path/to/stockfish ./run_kairos.sh
 ```
+
+## KAIROS Web Lite
+
+`kairos-lite-web-v0.2.0.tar.gz` is the primary browser target: the KAIROS
+personality around Stockfish 19 Lite single-threaded WASM, running entirely in
+the page. It needs no Python, no backend, no `SharedArrayBuffer`, and no
+COOP/COEP headers.
+
+Download it from the
+[v0.2.0 release](https://github.com/rizzonicola/KAIROS/releases/tag/v0.2.0),
+extract it, and serve the directory with any static file server:
+
+```bash
+tar -xzf kairos-lite-web-v0.2.0.tar.gz
+cd kairos-lite-web-v0.2.0
+python3 -m http.server 8000
+```
+
+Open <http://localhost:8000>. You play White against the engine as Black, with a
+2000 ms think time, style 50, posture Auto and variety 0. Think time is
+selectable from 1500 to 10000 ms. `KairosStyle=0` returns Stockfish's exact best
+move; every other pick is verified against Stockfish and falls back on any
+uncertainty. No Elo claim is made. See
+[`web/README-WEB.md`](web/README-WEB.md) for controls and engine provenance.
 
 ## UCI options
 
@@ -137,6 +161,7 @@ Every GitHub release is built by `.github/workflows/release.yml`:
 | `stockfish-19-wasm32-relaxed-simd.tar.gz` | Same, with relaxed SIMD. |
 | `stockfish-19-lite-single.tar.gz` | Stockfish 19 Lite WASM, single-threaded, no `SharedArrayBuffer` requirement. |
 | `stockfish-19-lite.tar.gz` | Stockfish 19 Lite WASM, multithreaded. |
+| `kairos-lite-web-<tag>.tar.gz` | The KAIROS Web Lite personality page wrapping `stockfish-19-lite-single`. |
 
 The `lite` flavors follow the [`stockfish.js`](https://github.com/nmrugg/stockfish.js)
 definition: a smaller network (`nn-61e7af4bb97d.nnue`) and a smaller download.
