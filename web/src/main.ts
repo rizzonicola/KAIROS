@@ -251,7 +251,7 @@ function handleControllerMessage(message: WorkerResponse): void {
 function armInitTimer(): void {
   clearInitTimer();
   initTimer = window.setTimeout(() => {
-    handleEngineFailure("The engine did not start in time.");
+    blockEngine("The engine did not start in time.", "retry");
   }, 10_000);
 }
 

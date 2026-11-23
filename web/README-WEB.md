@@ -64,5 +64,5 @@ Measured on the reference build (Task 11):
 
 | Measurement | Result |
 | --- | --- |
-| Feature evaluation | pending |
-| Browser think time (2000 ms setting) | pending |
+| Feature evaluation | 0.58 ms per fixture position (36 candidates, 6.96 ms total) |
+| Browser think time (2000 ms setting) | 1515 ms, engine ready in 97 ms |
