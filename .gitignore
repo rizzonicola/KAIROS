@@ -6,3 +6,9 @@ __pycache__/
 /third_party/stockfish.js/
 /dist/
 /sprt-results/
+/web/node_modules/
+/web/dist/
+/web/test-results/
+/web/playwright-report/
+/web/public/engine/*.js
+/web/public/engine/*.wasm
