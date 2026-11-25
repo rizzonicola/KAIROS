@@ -1,5 +1,5 @@
 :root {
-  color-scheme: dark;
+  color-scheme: dark light;
   --bg: #0e1116;
   --panel: #171c24;
   --text: #e8edf4;
@@ -411,5 +411,121 @@ button:hover {
 
   .board {
     margin-inline: 0;
+  }
+}
+
+/* ---- v0.3: mobile-first additions ---------------------------------------- */
+
+#app {
+  padding-top: max(1.25rem, env(safe-area-inset-top));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+}
+
+html,
+body {
+  overflow-x: hidden;
+}
+
+button,
+select,
+input[type="range"] {
+  min-height: 44px;
+}
+
+.controls label {
+  min-width: 0;
+}
+
+.row {
+  flex-wrap: wrap;
+}
+
+.row button {
+  flex: 1 1 5.5rem;
+}
+
+.engine-badge {
+  display: inline-block;
+  margin: 0 0 0.5rem;
+  padding: 0.2rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.engine-badge[data-mode="stockfish"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.engine-badge[data-mode="standalone"] {
+  color: #ffb27a;
+  border-color: #ffb27a;
+}
+
+.badge-standalone {
+  background: #3b2b1d;
+  color: #ffb27a;
+}
+
+.rationale-guard {
+  margin: 0.25rem 0;
+  color: var(--muted);
+}
+
+.rationale-more {
+  margin-top: 0.5rem;
+}
+
+.rationale-more summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.rationale-lines,
+.rationale-plan-text {
+  margin: 0.4rem 0;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 420px) {
+  .tagline {
+    font-size: 0.9rem;
+  }
+
+  .moves {
+    max-height: 7rem;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f4f1ea;
+    --panel: #ffffff;
+    --text: #1b2330;
+    --muted: #5a6677;
+    --accent: #8a6a1c;
+    --border: #d5d0c4;
+  }
+
+  body {
+    background: radial-gradient(circle at top, #ffffff 0%, var(--bg) 55%);
+  }
+
+  .badge-standalone {
+    background: #fde8d4;
+    color: #8a4a12;
+  }
+
+  .engine-badge[data-mode="standalone"] {
+    color: #8a4a12;
+    border-color: #8a4a12;
   }
 }

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# UCI launcher: point your GUI / cutechess-cli at this file.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "${SOURCE}" ]; do
+  DIR="$(cd -P "$(dirname "${SOURCE}")" && pwd)"
+  SOURCE="$(readlink "${SOURCE}")"
+  [[ "${SOURCE}" != /* ]] && SOURCE="${DIR}/${SOURCE}"
+done
+DIR="$(cd -P "$(dirname "${SOURCE}")" && pwd)"
+exec node "${DIR}/kairos-uci.mjs" "$@"

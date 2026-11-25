@@ -4,6 +4,8 @@ import { EngineHost } from "./engine-host";
 import { applyEngineMove, positionCommand } from "./game";
 import type { Posture } from "./postures";
 import type { WorkerRequest, WorkerResponse } from "./protocol";
+import { S } from "./strings";
+import type { EngineMode } from "./types";
 import "./style.css";
 
 declare global {
@@ -36,49 +38,36 @@ const MIX_ORDER: Posture[] = [
   "Fog",
 ];
 
-const FEATURE_LABELS = [
-  ["F_T", "Tension"],
-  ["F_N", "Narrowness"],
-  ["F_R", "Reserve"],
-  ["F_C", "Coordination"],
-  ["F_F", "Flexibility"],
-  ["F_P", "Prophylaxis"],
-  ["F_K", "King margin"],
-  ["F_S", "Simplification"],
-  ["F_I", "Initiative"],
-] as const;
+const FEATURE_LABELS = S.features;
 
-const KIND_LABELS: Record<Rationale["kind"], string> = {
-  rerank: "KAIROS rerank",
-  fallback: "Stockfish fallback",
-  stockfish: "Stockfish exact",
-};
+const KIND_LABELS = S.kinds;
 
 app.innerHTML = `
   <main class="shell">
     <header class="masthead">
-      <h1>KAIROS <span>Web Lite</span></h1>
-      <p class="tagline">A personality around Stockfish 19 Lite, running entirely in your browser.</p>
+      <h1>${S.title} <span>${S.subtitle}</span></h1>
+      <p class="tagline">${S.tagline}</p>
     </header>
     <div class="layout">
       <section class="board-column">
+        <p id="engine-badge" class="engine-badge" data-mode="loading">${S.badge.loading}</p>
         <div id="board" class="board" role="grid" aria-label="Chess board"></div>
-        <p id="status" class="status" aria-live="polite">Loading the engine…</p>
+        <p id="status" class="status" aria-live="polite">${S.status.loading}</p>
         <p id="engine-line" class="engine-line"></p>
         <div id="error-banner" class="alert" role="alert" hidden>
           <p id="alert-text"></p>
-          <button id="retry" type="button">Retry</button>
+          <button id="retry" type="button">${S.controls.retry}</button>
         </div>
       </section>
       <aside class="panel">
         <div class="controls">
-          <label>Play as
+          <label>${S.controls.side}
             <select id="side">
-              <option value="w">White</option>
-              <option value="b">Black</option>
+              <option value="w">${S.controls.white}</option>
+              <option value="b">${S.controls.black}</option>
             </select>
           </label>
-          <label>Think time
+          <label>${S.controls.think}
             <select id="think">
               <option value="1500">1.5 s</option>
               <option value="2000" selected>2 s</option>
@@ -87,20 +76,24 @@ app.innerHTML = `
               <option value="10000">10 s</option>
             </select>
           </label>
-          <label>Style <output id="style-value">50</output>
+          <label>${S.controls.style} <output id="style-value">50</output>
             <input id="style" type="range" min="0" max="100" step="1" value="50" />
           </label>
-          <label>Posture
+          <label title="${S.controls.independenceHint}">${S.controls.independence} <output id="independence-value">50</output>
+            <input id="independence" type="range" min="0" max="100" step="1" value="50" />
+          </label>
+          <label>${S.controls.posture}
             <select id="posture">
               ${POSTURES.map((name) => `<option value="${name}">${name}</option>`).join("")}
             </select>
           </label>
-          <label>Variety <output id="variety-value">0</output>
+          <label>${S.controls.variety} <output id="variety-value">0</output>
             <input id="variety" type="range" min="0" max="100" step="1" value="0" />
           </label>
           <div class="row">
-            <button id="new-game" type="button">New game</button>
-            <button id="flip" type="button">Flip</button>
+            <button id="new-game" type="button">${S.controls.newGame}</button>
+            <button id="undo" type="button">${S.controls.undo}</button>
+            <button id="flip" type="button">${S.controls.flip}</button>
           </div>
         </div>
         <ol id="move-list" class="moves" aria-label="Move list"></ol>
@@ -140,6 +133,10 @@ const thinkEl = element<HTMLSelectElement>("#think");
 const styleEl = element<HTMLInputElement>("#style");
 const styleValueEl = element<HTMLOutputElement>("#style-value");
 const postureEl = element<HTMLSelectElement>("#posture");
+const independenceEl = element<HTMLInputElement>("#independence");
+const independenceValueEl = element<HTMLOutputElement>("#independence-value");
+const badgeEl = element<HTMLParagraphElement>("#engine-badge");
+const undoEl = element<HTMLButtonElement>("#undo");
 const varietyEl = element<HTMLInputElement>("#variety");
 const varietyValueEl = element<HTMLOutputElement>("#variety-value");
 const newGameEl = element<HTMLButtonElement>("#new-game");
@@ -179,6 +176,9 @@ let flipped = false;
 let style = 50;
 let posture: Posture | "Auto" = "Auto";
 let variety = 0;
+let independence = 50;
+let engineMode: EngineMode = "stockfish";
+let modeKnown = false;
 let thinkTime = 2000;
 let selected: Square | null = null;
 let lastMove: { from: string; to: string } | null = null;
@@ -210,9 +210,17 @@ function sendInit(): void {
     style,
     posture,
     variety,
+    independence,
     allowUnverifiedEngine,
+    standalone: engineMode === "standalone",
   };
-  post({ type: "init", options, seed: Date.now() });
+  post({
+    type: "init",
+    options,
+    seed: Date.now(),
+    // Relative to the page, so sub-path hosting keeps working.
+    coreUrl: new URL("engine/kairos_core_bg.wasm", document.baseURI).href,
+  });
 }
 
 function connect(): void {
@@ -223,12 +231,10 @@ function connect(): void {
     handleControllerMessage(event.data);
   };
   controller.onerror = (event) => {
-    handleControllerFailure(
-      event.message || "The controller stopped unexpectedly.",
-    );
+    handleControllerFailure(event.message || S.errors.controllerStopped);
   };
   controller.onmessageerror = () => {
-    handleControllerFailure("The controller sent an unreadable message.");
+    handleControllerFailure(S.errors.controllerUnreadable);
   };
 
   host = new EngineHost(
@@ -237,7 +243,7 @@ function connect(): void {
         new URL("engine/stockfish-19-lite-single.js", document.baseURI),
       ),
     (line) => post({ type: "engine-line", line }),
-    () => handleEngineFailure("The engine stopped unexpectedly."),
+    () => handleEngineFailure(S.errors.engineStopped),
   );
 
   ready = false;
@@ -250,8 +256,12 @@ function connect(): void {
 
 function handleControllerMessage(message: WorkerResponse): void {
   switch (message.type) {
+    case "mode":
+      setMode(message.mode, message.reason);
+      return;
     case "ready":
       ready = true;
+      setMode(message.mode, "");
       clearInitTimer();
       readyMs = Math.round(performance.now() - initStartedAt);
       window.__kairos!.readyMs = readyMs;
@@ -290,7 +300,7 @@ function handleControllerMessage(message: WorkerResponse): void {
 function armInitTimer(): void {
   clearInitTimer();
   initTimer = window.setTimeout(() => {
-    blockEngine("The engine did not start in time.", "retry");
+    handleEngineFailure(S.errors.engineNoStart);
   }, 10_000);
 }
 
@@ -305,7 +315,7 @@ function armWatchdog(milliseconds: number): void {
   clearWatchdog();
   watchdog = window.setTimeout(() => {
     watchdog = null;
-    handleWatchdogTimeout("The engine did not answer in time.");
+    handleWatchdogTimeout(S.errors.engineNoAnswer);
   }, milliseconds);
 }
 
@@ -339,7 +349,7 @@ function handleWatchdogTimeout(message: string): void {
     controller.terminate();
     connect();
     render();
-    setStatus(`${message} Restarting KAIROS…`);
+    setStatus(S.status.restartingKairos(message));
   }, 2_000);
 }
 
@@ -355,10 +365,47 @@ function handleEngineFailure(message: string): void {
     sendInit();
     armInitTimer();
     render();
-    setStatus(`${message} Restarting the engine…`);
+    setStatus(S.status.restartingEngine(message));
     return;
   }
-  blockEngine(message, "retry");
+  enterStandalone(message);
+}
+
+function setMode(mode: EngineMode, reason: string): void {
+  engineMode = mode;
+  modeKnown = true;
+  updateBadge();
+  if (mode === "standalone" && reason) {
+    engineLineEl.textContent = S.status.standalone(reason);
+  }
+}
+
+function updateBadge(): void {
+  if (!modeKnown) {
+    badgeEl.textContent = S.badge.loading;
+    badgeEl.dataset.mode = "loading";
+    return;
+  }
+  badgeEl.textContent = engineMode === "standalone" ? S.badge.standalone : S.badge.stockfish;
+  badgeEl.dataset.mode = engineMode;
+}
+
+/** Stockfish is gone for good: continue with KAIROS' own search (spec: never just show an error). */
+function enterStandalone(reason: string): void {
+  clearWatchdog();
+  clearInitTimer();
+  host.terminate();
+  const wasThinking = thinking;
+  thinking = false;
+  engineMode = "standalone";
+  modeKnown = true;
+  updateBadge();
+  post({ type: "standalone", reason });
+  engineLineEl.textContent = S.status.standalone(reason);
+  render();
+  if ((wasThinking || engineToMove()) && ready) {
+    askEngine();
+  }
 }
 
 function handleControllerFailure(message: string): void {
@@ -380,7 +427,7 @@ function handleControllerFailure(message: string): void {
   controller.terminate();
   connect();
   render();
-  setStatus(`${message} Restarting KAIROS…`);
+  setStatus(S.status.restartingKairos(message));
 }
 
 function blockEngine(message: string, action: "retry" | "newgame"): void {
@@ -437,10 +484,7 @@ function handleBestmove(
 
   const applied = applyEngineMove(game, move);
   if (!applied) {
-    blockEngine(
-      `The engine returned an illegal move (${move || "none"}).`,
-      "newgame",
-    );
+    blockEngine(S.status.illegalEngineMove(move), "newgame");
     return;
   }
   lastMove = { from: applied.from, to: applied.to };
@@ -474,7 +518,7 @@ function showRationale(rationale: Rationale): void {
     return `<li><span>${name}</span>${bar(value * 100)}<span class="row-value">${Math.round(value * 100)}%</span></li>`;
   }).join("");
   const featureRows = rationale.features
-    ? `<div class="rationale-block"><h3>Features</h3><ul class="bars">` +
+    ? `<div class="rationale-block"><h3>${S.rationale.features}</h3><ul class="bars">` +
       FEATURE_LABELS.map(([key, label]) => {
         const value = rationale.features![key];
         return `<li><span>${label}</span>${bar(((value + 1) / 2) * 100)}<span class="row-value">${value.toFixed(2)}</span></li>`;
@@ -482,54 +526,86 @@ function showRationale(rationale: Rationale): void {
       `</ul></div>`
     : "";
   const reason = escapeHtml(rationale.reason.replaceAll("-", " "));
+  const list = (moves: string[]): string =>
+    moves.length > 0 ? escapeHtml(moves.join(" ")) : S.rationale.none;
+  const plan = rationale.planToken;
+  const planText = plan
+    ? `${escapeHtml(plan.intent)} · ${escapeHtml(plan.target)} (${escapeHtml(plan.files)})` +
+      (plan.levers.length ? ` · levers ${escapeHtml(plan.levers.join(" "))}` : "") +
+      (plan.reserve.length ? ` · reserve ${escapeHtml(plan.reserve.join(" "))}` : "")
+    : escapeHtml(rationale.plan);
+  const tension = rationale.pressure ? rationale.pressure.tension : 0;
+  const narrowness = rationale.pressure?.narrowness ?? null;
+  const pressure =
+    `<div class="rationale-block"><h3>${S.rationale.pressure}</h3><ul class="bars">` +
+    `<li><span>${S.rationale.tension}</span>${bar((Math.min(12, tension) / 12) * 100)}<span class="row-value">${tension}</span></li>` +
+    (narrowness === null
+      ? ""
+      : `<li><span>${S.rationale.narrowness}</span>${bar(((narrowness + 1) / 2) * 100)}<span class="row-value">${narrowness.toFixed(2)}</span></li>`) +
+    `</ul></div>`;
+  const guard =
+    rationale.kind === "fallback" || rationale.kind === "stockfish"
+      ? `<p class="rationale-guard">${S.rationale.guard}: <code>${reason}</code></p>`
+      : "";
+  const origin =
+    rationale.kind === "standalone"
+      ? ""
+      : `<p class="rationale-lines">
+          ${S.rationale.proposed}: ${list(rationale.proposed)}<br />
+          ${S.rationale.top3}: ${list(rationale.sfTop3)}<br />
+          ${rationale.outsideTop3 ? S.rationale.outside : S.rationale.inside}${rationale.playedProposed ? " · KAIROS proposed" : ""}
+        </p>`;
   rationaleEl.dataset.kind = rationale.kind;
   rationaleEl.innerHTML = `
     <div class="rationale-head">
       <span class="badge badge-${rationale.kind}">${KIND_LABELS[rationale.kind]}</span>
       <strong>${rationale.posture}</strong>
-      <span class="rationale-plan">${rationale.plan} · ${reason}</span>
+      <span class="rationale-plan">${escapeHtml(rationale.plan)} · ${reason}</span>
     </div>
     <p class="rationale-summary">
-      Confidence ${Math.round(rationale.confidence * 100)}% ·
-      budget ${rationale.budgetPct.toFixed(2)}% ·
-      loss ${rationale.lossPct.toFixed(2)}% ·
-      pick ${rationale.pick} ·
-      Stockfish ${escapeHtml(rationale.sfBest || "none")}
+      ${S.rationale.confidence} ${Math.round(rationale.confidence * 100)}% ·
+      ${S.rationale.budget} ${rationale.budgetPct.toFixed(2)}% ·
+      ${S.rationale.loss} ${rationale.lossPct.toFixed(2)}% ·
+      ${S.rationale.pick} ${rationale.pick} ·
+      ${S.rationale.stockfish} ${escapeHtml(rationale.sfBest || S.rationale.none)}
     </p>
-    <div class="rationale-block"><h3>Posture mix</h3><ul class="bars">${mixRows}</ul></div>
-    ${featureRows}`;
+    ${guard}
+    <details class="rationale-more">
+      <summary>${S.rationale.more}</summary>
+      <p class="rationale-plan-text"><strong>${S.rationale.plan}:</strong> ${planText}</p>
+      ${origin}
+      ${pressure}
+      <div class="rationale-block"><h3>${S.rationale.posture}</h3><ul class="bars">${mixRows}</ul></div>
+      ${featureRows}
+    </details>`;
 }
 
 function statusText(): string {
   if (engineDisabled) {
-    return "The engine is disabled for this game.";
+    return S.status.disabled;
   }
   if (thinking) {
-    return "KAIROS is thinking…";
+    return S.status.thinking;
   }
   if (!ready) {
-    return "Loading the engine…";
+    return S.status.loading;
   }
   if (game.isCheckmate()) {
-    return game.turn() === playerColor
-      ? "Checkmate. You lost."
-      : "Checkmate. You won.";
+    return game.turn() === playerColor ? S.status.youLost : S.status.youWon;
   }
   if (game.isStalemate()) {
-    return "Stalemate.";
+    return S.status.stalemate;
   }
   if (game.isDraw()) {
-    return "Draw.";
+    return S.status.draw;
   }
   if (game.history().length === 0 && game.turn() === playerColor) {
-    return "Ready. Your move.";
+    return S.status.ready;
   }
   if (game.inCheck()) {
-    return game.turn() === playerColor
-      ? "You are in check."
-      : "KAIROS is in check.";
+    return game.turn() === playerColor ? S.status.youInCheck : S.status.engineInCheck;
   }
-  return game.turn() === playerColor ? "Your move." : "Engine to move.";
+  return game.turn() === playerColor ? S.status.yourMove : S.status.engineMove;
 }
 
 function setStatus(text: string): void {
@@ -737,6 +813,46 @@ postureEl.addEventListener("change", () => {
   posture = postureEl.value as Posture | "Auto";
   post({ type: "setoption", name: "KairosPosture", value: posture });
 });
+
+independenceEl.addEventListener("input", () => {
+  independence = Number(independenceEl.value);
+  independenceValueEl.value = String(independence);
+  post({ type: "setoption", name: "KairosIndependence", value: String(independence) });
+});
+
+/** Take back the last move pair (the engine's reply and the player's move before it). */
+function undoMovePair(): void {
+  if (thinking || engineDisabled || !ready) {
+    return;
+  }
+  if (game.history().length === 0) {
+    return;
+  }
+  const undoOne = (): void => {
+    if (game.history().length > 0) {
+      game.undo();
+    }
+  };
+  if (game.turn() === playerColor) {
+    undoOne(); // the engine's move
+    if (game.turn() !== playerColor) {
+      undoOne(); // the player's move
+    }
+  } else {
+    undoOne();
+  }
+  selected = null;
+  const history = game.history({ verbose: true });
+  lastMove = history.length ? { from: history[history.length - 1].from, to: history[history.length - 1].to } : null;
+  rationaleEl.textContent = "";
+  engineLineEl.textContent = "";
+  render();
+  if (engineToMove()) {
+    askEngine();
+  }
+}
+
+undoEl.addEventListener("click", undoMovePair);
 
 varietyEl.addEventListener("input", () => {
   variety = Number(varietyEl.value);

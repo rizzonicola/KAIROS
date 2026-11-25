@@ -9,70 +9,78 @@ on:
 permissions:
   contents: read
 
+env:
+  RUST_TOOLCHAIN: "1.85.0"
+  WASM_BINDGEN_VERSION: "0.2.100"
+
 jobs:
-  test:
+  rust:
+    name: Rust core (native tests incl. perft)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-
-      - name: Build pinned Stockfish 19
-        run: ./scripts/build_stockfish19.sh
-
-      - name: Syntax checks
+      - name: Install Rust
         run: |
-          bash -n scripts/build_stockfish19.sh scripts/build_wasm.sh run_kairos.sh
-          python3 -m py_compile kairos/*.py tests/*.py
+          rustup toolchain install "${RUST_TOOLCHAIN}" --profile minimal --target wasm32-unknown-unknown
+          rustup default "${RUST_TOOLCHAIN}"
+      - name: cargo test (release, includes perft)
+        working-directory: kairos-core
+        run: |
+          LOCK=""; [ -f Cargo.lock ] && LOCK="--locked"
+          cargo test --release ${LOCK}
 
-      - name: Tests
-        run: python3 -m unittest discover -s tests -v
-
-  web:
+  engine:
+    name: Web tests, UCI engine and browser smoke
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
-
-      - name: Vector freshness
-        run: python3 scripts/export_web_vectors.py --check
-
-      - name: Download pinned Lite engine
+      - name: Install Rust
         run: |
-          set -euo pipefail
-          mkdir -p "${RUNNER_TEMP}/kairos-engine"
-          curl -L --fail -o "${RUNNER_TEMP}/kairos-engine/stockfish-19-lite-single.tar.gz" \
-            https://github.com/rizzonicola/KAIROS/releases/download/v0.1.0/stockfish-19-lite-single.tar.gz
-          curl -L --fail -o "${RUNNER_TEMP}/kairos-engine/SHA256SUMS" \
-            https://github.com/rizzonicola/KAIROS/releases/download/v0.1.0/SHA256SUMS
-          cd "${RUNNER_TEMP}/kairos-engine"
-          grep 'stockfish-19-lite-single.tar.gz' SHA256SUMS | sha256sum -c -
-          tar -xzf stockfish-19-lite-single.tar.gz
-
-      - name: Install
+          rustup toolchain install "${RUST_TOOLCHAIN}" --profile minimal --target wasm32-unknown-unknown
+          rustup default "${RUST_TOOLCHAIN}"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin
+          key: wasm-bindgen-cli-${{ env.WASM_BINDGEN_VERSION }}
+      - name: Install wasm-bindgen CLI and binaryen
+        run: |
+          command -v wasm-bindgen >/dev/null || cargo install wasm-bindgen-cli --version "${WASM_BINDGEN_VERSION}" --locked
+          sudo apt-get update && sudo apt-get install -y binaryen
+      - name: Build the Rust core to WebAssembly
+        run: ./scripts/build_core.sh
+      - name: Download pinned Stockfish 19 Lite
+        run: ./scripts/fetch_engine.sh
+      - name: Install web dependencies
         run: cd web && npm ci
-
-      - name: Build and package
+      - name: Typecheck and build the page
+        run: cd web && npm run build
+      - name: Unit, core, UCI-time and real-engine tests
         env:
-          KAIROS_LITE_ENGINE_DIR: ${{ runner.temp }}/kairos-engine/stockfish-19-lite-single
-        run: ./scripts/build_web.sh ci
-
-      - name: Tests
-        env:
-          KAIROS_LITE_ENGINE: ${{ github.workspace }}/web/public/engine/stockfish-19-lite-single.js
+          KAIROS_ENGINE: ${{ github.workspace }}/web/public/engine/stockfish-19-lite-single.js
         run: cd web && npm test
-
+      - name: Package and smoke-test the UCI engine
+        run: |
+          ./scripts/build_uci.sh ci
+          (printf 'uci\nisready\nposition startpos moves e2e4\ngo movetime 2000\n') | \
+            timeout 120 dist/kairos-uci-ci/kairos | tee uci-out.txt
+          grep -q '^uciok' uci-out.txt
+          grep -q '^readyok' uci-out.txt
+          grep -q '^bestmove ' uci-out.txt
+      - name: Match harness smoke (2 short games)
+        run: |
+          cd web
+          node tools/run-ts.mjs tools/match.ts --games 2 --movetime 500 --analysis-depth 6 --max-plies 40 --out ../match-results/ci-smoke.json
       - name: Browser smoke
         run: |
           cd web
           npx playwright install --with-deps chromium
           npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: match-smoke
+          path: match-results/
+          if-no-files-found: ignore

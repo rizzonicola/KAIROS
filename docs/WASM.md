@@ -1,106 +1,28 @@
-# WebAssembly builds
+# WebAssembly components
 
-Release WebAssembly artifacts are **Stockfish 19 engines**, not the Python KAIROS
-personality layer. They are useful for web/Node.js frontends that need a local
-engine. The native KAIROS wrapper still requires Python and a native Stockfish
-binary.
+KAIROS ships two WebAssembly modules and no native binary.
 
-The separate `kairos-lite-web-<tag>.tar.gz` archive **is** the KAIROS personality
-page for the browser. It wraps the `stockfish-19-lite-single` engine in the
-TypeScript implementation of the same feature, posture, guard and verification
-pipeline. The raw WASM archives remain plain Stockfish engines.
+| File | Origin | Purpose |
+|---|---|---|
+| `engine/stockfish-19-lite-single.js` + `.wasm` | `nmrugg/stockfish.js` tag `v19.0.1` (Stockfish 19), Lite, single thread | judge, verifier, safety net |
+| `engine/kairos_core_bg.wasm` | `kairos-core/` (Rust, `wasm32-unknown-unknown`, wasm-bindgen 0.2.100) | board, features, plan, proposals, own search |
 
-## KAIROS Web Lite archive
+**Network:** Lite only (`nn-61e7af4bb97d.nnue`, embedded in the Stockfish.js build), SHA-256
+`61e7af4bb97d51eeeb25d322916f86513b5cd3a827ce189c98c6e31946f99e5b` (1,166,381 bytes). The original
+network of the removed native build is not used anywhere.
 
-```text
-kairos-lite-web-v0.2.1/
-  index.html
-  assets/                         # page scripts and styles
-  engine/stockfish-19-lite-single.js
-  engine/stockfish-19-lite-single.wasm
-  README-WEB.md
-  LICENSE
-  THIRD_PARTY.md
-```
+**Provenance and integrity.** `scripts/fetch_engine.sh` downloads the Lite single-thread archive of the
+KAIROS `v0.1.0` release, checks it against the release `SHA256SUMS`, and compares it with the hash pinned in
+`scripts/engine.lock` (set `KAIROS_REQUIRE_PIN=1` to refuse unpinned artefacts). The pinned archive SHA-256
+is `f0b4bece700b0133b5d60189966894717ed07117dcbaea6e29aa5cbb70babe4a`; the extracted files have SHA-256
+`ccb130d7ff29408531c47d859a49f91d59d4f482d05a53eb1a3231a4f624c91a` (JS) and
+`ee4f115bdb2d32cadf96cada104a05b5ec257d7ad6f57582190b49bc71f096de` (WASM). `scripts/build_wasm.sh lite`
+rebuilds the same files from source (Emscripten 6.0.9). The Stockfish files and network are never modified.
 
-Serve the extracted directory over HTTP with any static server; opening
-`index.html` from the filesystem does not load the WebAssembly engine. All asset
-paths are relative, so subpaths work. The page requires no COOP/COEP headers and
-no `SharedArrayBuffer`.
+**Requirements.** The page and the UCI engine need no `SharedArrayBuffer`, no COOP/COEP, no threads. All
+asset URLs are relative (`base: "./"`), so sub-path hosting works; `file://` does not load WebAssembly.
 
-## Flavors
-
-| Flavor | Source | Threads | Network | Cross-origin isolation |
-|---|---|---:|---|---|
-| `stockfish-19-wasm32` | official Stockfish `sf_19` | yes | original `nn-1a298aa575a0.nnue` | required |
-| `stockfish-19-wasm32-relaxed-simd` | official Stockfish `sf_19` | yes | original network | required |
-| `stockfish-19-lite` | `nmrugg/stockfish.js` `v19.0.1` | yes | lite `nn-61e7af4bb97d.nnue` | required |
-| `stockfish-19-lite-single` | `nmrugg/stockfish.js` `v19.0.1` | no | lite network | **not required** |
-
-The official builds are compiled with `ARCH=wasm32` (or
-`wasm32-relaxed-simd`) and `EXTRALDFLAGS="--preload-file nn-1a298aa575a0.nnue"`.
-The lite builds are compiled by the upstream `stockfish.js` build script with
-`--lite` and, for the single-threaded flavor, `--single-threaded`.
-
-The lite flavors use a different, smaller network. They are intentionally
-separate from the pinned native KAIROS engine and must not be described as
-using the original Stockfish 19 network.
-
-## Node.js smoke test
-
-Official multithreaded build:
-
-```bash
-printf 'uci\nisready\nposition startpos\ngo depth 8\nquit\n' | node stockfish.js
-```
-
-Lite single-threaded build:
-
-```bash
-printf 'uci\nisready\nposition startpos\ngo depth 8\nquit\n' | node stockfish-19-lite-single.js
-```
-
-The engine should print `id name Stockfish 19`, `uciok`, `readyok`, and a
-`bestmove` line. The official `stockfish.js` expects its `.wasm`, `.data`, and
-network files next to it.
-
-## Browser
-
-Serve the files with correct MIME types:
-
-- `.js` → `text/javascript`
-- `.wasm` → `application/wasm`
-- `.data` → `application/octet-stream`
-
-For the multithreaded flavors, the server must also send:
-
-```text
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: require-corp
-```
-
-The `lite-single` flavor runs without those headers. It is the recommended
-starting point for a simple browser integration. See the
-[`stockfish.js` examples](https://github.com/nmrugg/stockfish.js/tree/master/examples)
-for a worker/loader implementation; the generated lite files use the same
-`postMessage` interface as the upstream project.
-
-## Build locally
-
-Install Emscripten (the release workflow uses `6.0.9`), then:
-
-```bash
-source /path/to/emsdk/emsdk_env.sh
-./scripts/build_wasm.sh official wasm32
-./scripts/build_wasm.sh official wasm32-relaxed-simd
-./scripts/build_wasm.sh lite
-```
-
-Artifacts are written to `dist/`. The script verifies the official Stockfish
-tag/commit/network before compiling and pins the `stockfish.js` tag for the lite
-builds.
-
-## License
-
-The WebAssembly artifacts contain Stockfish and are GPL-3.0. See
-[`../LICENSE`](../LICENSE) and [`../THIRD_PARTY.md`](../THIRD_PARTY.md).
+**Loading the core.** `core-wasm.ts` fetches `engine/kairos_core_bg.wasm` and lets the wasm-bindgen glue
+use `WebAssembly.instantiateStreaming`, falling back to `arrayBuffer()` when the server sends the wrong
+MIME type (the glue does this, and `loadWasmCore` retries once from bytes). Under Node (UCI engine, tests)
+the bytes are read from disk.

@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
+# Build the optional browser page: dist/kairos-web-<tag>.tar.gz
+#   scripts/build_web.sh [tag]
+# Requires web/public/engine/{stockfish-19-lite-single.js,.wasm} (scripts/fetch_engine.sh);
+# builds the Rust core first when it is not built yet.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TAG="${1:-dev}"
-ENGINE_DIR="${KAIROS_LITE_ENGINE_DIR:-${ROOT}/dist/stockfish-19-lite-single}"
-JS="${ENGINE_DIR}/stockfish-19-lite-single.js"
-WASM="${ENGINE_DIR}/stockfish-19-lite-single.wasm"
-[[ -f "${JS}" && -f "${WASM}" ]] || {
-  echo "ERROR: ${JS} and ${WASM} are required." >&2
-  echo "Build with ./scripts/build_wasm.sh lite or set KAIROS_LITE_ENGINE_DIR." >&2
+ENG="${ROOT}/web/public/engine"
+[[ -f "${ENG}/stockfish-19-lite-single.js" && -f "${ENG}/stockfish-19-lite-single.wasm" ]] || {
+  echo "ERROR: Stockfish Lite files missing in ${ENG}; run scripts/fetch_engine.sh" >&2
   exit 1
 }
-mkdir -p "${ROOT}/web/public/engine"
-cp "${JS}" "${WASM}" "${ROOT}/web/public/engine/"
+[[ -f "${ROOT}/web/src/core/pkg/kairos_core.js" ]] || "${ROOT}/scripts/build_core.sh"
 (cd "${ROOT}/web" && npm ci && npm run build)
-pkg="kairos-lite-web-${TAG}"
+pkg="kairos-web-${TAG}"
 rm -rf "${ROOT}/dist/${pkg}"
 mkdir -p "${ROOT}/dist/${pkg}"
 cp -r "${ROOT}/web/dist/." "${ROOT}/dist/${pkg}/"

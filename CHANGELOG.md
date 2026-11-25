@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.3.0 — unreleased (verified locally, 2026-11-25)
+
+KAIROS becomes a UCI engine with its own candidate generation. Stockfish 19 Lite is judge, verifier and
+safety net. Python and the native build are gone.
+
+- New Rust core (`kairos-core`, WebAssembly): perft-tested board service on `cozy-chess`, real SEE, attack maps,
+  pins/x-rays, king zones, the nine features, plan token, candidate proposer and a small interruptible search.
+- New per-move pipeline: baseline (MultiPV 3) while the core proposes -> judge (`searchmoves`, one search) ->
+  probes -> verify (next candidate on failure) -> fallback to Stockfish's best.
+- Budgets now follow the posture (Coil 1.5, Strike 3, Absorb 1, Reverse 2, Distill 0.5, Fog 4 x style/100).
+- Standalone mode: KAIROS keeps playing with its own search when Stockfish is unavailable.
+- New `Independence` option (UCI `KairosIndependence`, UI slider).
+- Headless UCI engine (`web/tools/uci-node.ts`, `scripts/build_uci.sh`), match harness, statistics.
+- Controller split into `pipeline/` stages; `chess-features.ts` (proxies) removed; one board source of truth.
+- Browser page: engine status badge, undo, expandable rationale, safe-area/dark-mode CSS, strings in one file.
+- Removed: `kairos/`, Python tests, `run_kairos.sh`, native Stockfish build, SPRT script, vector exporter.
+- v0.2.1 vectors frozen under `web/tests/vectors/legacy-v0.2.1/`; the v0.3 feature fixture was
+  regenerated from the Rust core and is enforced by `web/tests/core.test.ts` (`docs/FEATURES_CHANGELOG.md`).
+- Verified locally: Rust 46 unit + 2 perft tests, web 101/101, browser 6/6, UCI build and smoke test,
+  and a 20-game match against Stockfish Lite at 2 s/move (all draws; full metrics in
+  `docs/VALIDATION.md`). CI/release workflows were not executed on GitHub; browser memory and the
+  500+ game fingerprint are unmeasured.
+
 ## v0.2.1 — 2026-11-23
 
 Reliability and transparency fixes for KAIROS Web Lite.

@@ -4,20 +4,7 @@ KAIROS is licensed under GPL-3.0. The release artifacts include or depend on the
 following components. This file records provenance; it is not a substitute for
 the licenses themselves.
 
-## Stockfish 19
-
-- Upstream: <https://github.com/official-stockfish/Stockfish>
-- Tag: `sf_19`
-- Commit: `edb0d9db6731067ec50ce619ff372b463bc4dd5d`
-- License: GNU General Public License v3.0 (`LICENSE`)
-- Network: `nn-1a298aa575a0.nnue`
-- Network SHA-256: `1a298aa575a085434d29027978dc36867fe9c5bcea9376654b7a8eba1e52dfc2`
-
-The native KAIROS build uses the official Stockfish source at this exact tag and
-the original network. KAIROS does not modify Stockfish source, search code, or
-the network; it runs Stockfish as a child UCI process.
-
-## Stockfish.js (optional Lite WebAssembly builds)
+## Stockfish 19 Lite (Stockfish.js WebAssembly build) — judge, verifier and safety net
 
 - Upstream: <https://github.com/nmrugg/stockfish.js>
 - Tag: `v19.0.1`
@@ -27,11 +14,13 @@ the network; it runs Stockfish as a child UCI process.
 - Lite network: `nn-61e7af4bb97d.nnue`, downloaded by the upstream build script
   from the Stockfish Fishtest network server.
 
-Stockfish.js is used only for the optional `lite` and `lite-single` WebAssembly
-artifacts. Those artifacts use a smaller network, so they are not the pinned
-native KAIROS engine and must not be presented as the validated Stockfish 19
-network build. They are provided for browsers and Node.js where download size
-and the absence of `SharedArrayBuffer` matter.
+KAIROS uses only the `lite-single` artefact (single thread, no `SharedArrayBuffer`) and runs it
+unmodified, as a Web Worker (browser) or a Node child process (UCI engine). It uses the Lite network,
+which is weaker than the original Stockfish 19 network; the original network is not used. The network
+file `nn-61e7af4bb97d.nnue` has SHA-256
+`61e7af4bb97d51eeeb25d322916f86513b5cd3a827ce189c98c6e31946f99e5b` (1,166,381 bytes, downloaded from
+the Stockfish Fishtest network server on 2026-11-25). The release archive hash is pinned in
+`scripts/engine.lock`.
 
 ## Emscripten
 
@@ -42,14 +31,19 @@ and the absence of `SharedArrayBuffer` matter.
 ## Node.js
 
 - Upstream: <https://nodejs.org/>
-- Used to run and smoke-test the WebAssembly artifacts. Node.js is not
-  distributed in the release archives.
+- Runs the UCI engine and the tests. Node.js is not distributed in the release archives (>= 20 required).
 
-## Python
+## Rust crates (compiled into `kairos_core_bg.wasm`)
 
-- Upstream: <https://www.python.org/>
-- License: Python Software Foundation License.
-- KAIROS uses only the Python standard library.
+- `cozy-chess` 0.3.4 — <https://github.com/analog-hors/cozy-chess> — MIT. Legal move generation, hashing, FEN.
+- `wasm-bindgen` 0.2.100 — <https://github.com/rustwasm/wasm-bindgen> — MIT OR Apache-2.0. JS bindings.
+  The `wasm-bindgen` CLI version must equal the crate pin. Transitive dependencies are listed in the
+  committed `kairos-core/Cargo.lock`.
+
+## npm packages (build/test only; the UCI engine bundle contains only the TypeScript sources)
+
+`chess.js` (BSD-2-Clause, UI input), `vite`, `vitest`, `typescript`, `@playwright/test`, `@types/node`;
+`esbuild` (MIT) is used by Vite and directly by `web/tools/bundle-uci.mjs`.
 
 ## References
 

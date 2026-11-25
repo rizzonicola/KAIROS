@@ -1,0 +1,23 @@
+[package]
+name = "kairos-core"
+version = "0.3.0"
+edition = "2021"
+description = "KAIROS core: board service, real SEE/features, plan layer, candidate proposer and a small interruptible search (WASM)."
+license = "GPL-3.0-or-later"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Legal move generator (MIT). Exact pin; see docs/VERIFICATION_HANDOFF.md (VERIFY-API markers).
+cozy-chess = "=0.3.4"
+# MUST equal the wasm-bindgen CLI version used in scripts/build_core.sh.
+wasm-bindgen = "=0.2.100"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

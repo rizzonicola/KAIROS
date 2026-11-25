@@ -1,6 +1,6 @@
 {
   "name": "kairos-lite-web",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:browser": "playwright test",
-    "vectors:check": "python3 ../scripts/export_web_vectors.py --check"
+    "uci": "node tools/run-ts.mjs tools/uci-node.ts",
+    "match": "node tools/run-ts.mjs tools/match.ts",
+    "build:uci": "node tools/bundle-uci.mjs"
   },
   "dependencies": {
     "chess.js": "^1.4.0"
@@ -17,6 +19,7 @@
   "devDependencies": {
     "@playwright/test": "^1.65.1",
     "@types/node": "^22.0.0",
+    "esbuild": "^0.28.2",
     "typescript": "^5.9.3",
     "vite": "^8.3.8",
     "vitest": "^5.1.1"

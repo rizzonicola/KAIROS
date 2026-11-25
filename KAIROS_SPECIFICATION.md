@@ -297,3 +297,41 @@ Options: `KairosStyle` (0–100, scales budgets and weights; 0 = vanilla Stockfi
 - Calibrate budgets against the WDL model of the Stockfish version actually shipped.
 - Set per-feature normalization from data (distribution over a sample of master and engine games).
 - Decide whether a fork is worth it after Phase 4 measurements.
+
+---
+
+# Appendix: v0.3 evolution (own candidates, Stockfish as judge)
+
+This appendix supersedes statements above that say Stockfish is the only source of candidate moves.
+
+**Architecture.** A Rust core (board service, real SEE/features, plan token, candidate proposer, small
+interruptible search) behind the `KairosCore` interface, a TypeScript controller (UCI state machine and
+staged pipeline), and unmodified Stockfish 19 Lite. See `docs/ADR-0001-architecture.md`.
+
+**Per-move pipeline.** (1) Gate: style 0, unsupported limits, forced moves, mate scores, Distill conversion
+(expected >= 0.90) -> Stockfish's best. (2) Baseline: MultiPV 3 with WDL; meanwhile the core updates the plan
+token and proposes up to 12 candidates from the plan and the nine features. (3) Judge: one
+`go ... searchmoves <top-3 + proposals>` with MultiPV = number of moves, so every comparison comes from the
+same search (same depth, exact scores, WDL). Independence sets how many proposals join (round(I/100 x 7)).
+(4) Corridor and scoring: loss <= posture budget x style/100, rolling 10-move cap 2.5x, result-band guard,
+saturation margin, repetition/50-move guards; `Score = -loss(pct) + style/100 x (1 + I/100) x 0.1 x sum w_k F_k`.
+(5) Probes (>= 3000 ms or depth >= 6) for F_N and F_P. (6) Verification: re-search the pair at depth + 2 (or 14-15%
+of the time); failure tries the next candidate (only when time was budgeted) and then Stockfish's best.
+(7) Rationale: posture mix, plan token, KAIROS-proposed vs Stockfish top 3, verified loss, budget, guard.
+
+**Postures budgets** (invariant): Coil 1.5%, Strike 3%, Absorb 1%, Reverse 2%, Distill 0.5%, Fog 4%, times
+style/100; rolling cap 2.5x. v0.2.1 applied the Coil value to every posture; 0.3 applies the table.
+
+**Features** are real (SEE, attack maps, x-rays, pins, king zones, batteries) and are deltas of the candidate
+versus the current position where that discriminates between candidates: `docs/FEATURES_CHANGELOG.md`.
+
+**Plan token** (`plan.rs`): posture intent, target flank, levers (pawns with a break), reserve pieces; persists
+across moves and expires when a pawn disappears, two or more pieces come off, or after 16 moves.
+
+**Standalone mode:** own search only (iterative deepening, PVS, TT, quiescence); no personality. Scope guard:
+the own search is not tuned for strength and must not be.
+
+**Invariants** are unchanged (section 6 of the task): style 0 equals Stockfish; every uncertainty returns
+Stockfish's best; expected score = (W + D/2)/1000; bands 0.45/0.55; saturation 50 cp; every played non-best move
+has a verified loss within the effective budget (enforced by `assertSafety` in the tests); the engine and
+network are never modified; no strength claims without recorded matches.

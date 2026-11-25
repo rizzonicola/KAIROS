@@ -6,7 +6,7 @@
  * style scale; the loss term always remains dominant.
  */
 
-import type { Features, PositionStats } from "./chess-features";
+import type { Features, PositionStats } from "./core";
 
 export const POSTURES = ["Coil", "Strike", "Absorb", "Reverse", "Distill", "Fog"] as const;
 export type Posture = (typeof POSTURES)[number];

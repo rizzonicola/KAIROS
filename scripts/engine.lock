@@ -1,0 +1,7 @@
+# SHA-256 of stockfish-19-lite-single.tar.gz from the KAIROS v0.1.0 release (upstream:
+# nmrugg/stockfish.js v19.0.1, Lite network nn-61e7af4bb97d.nnue).
+# Verified by scripts/fetch_engine.sh (release SHA256SUMS checked) on 2026-11-25.
+# Extracted JS: ccb130d7ff29408531c47d859a49f91d59d4f482d05a53eb1a3231a4f624c91a
+# Extracted WASM: ee4f115bdb2d32cadf96cada104a05b5ec257d7ad6f57582190b49bc71f096de
+# Network nn-61e7af4bb97d.nnue: 61e7af4bb97d51eeeb25d322916f86513b5cd3a827ce189c98c6e31946f99e5b
+sha256 f0b4bece700b0133b5d60189966894717ed07117dcbaea6e29aa5cbb70babe4a

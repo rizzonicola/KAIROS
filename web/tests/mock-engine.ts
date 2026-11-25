@@ -1,294 +1,221 @@
-import type { EnginePort } from "../src/controller";
+import type { EnginePort } from "../src/types";
 
-export type MockScenario =
-  | "normal"
-  | "reject-verify"
-  | "mate-main"
-  | "no-wdl"
-  | "depth-mismatch"
-  | "saturated-main"
-  | "saturated-verify"
-  | "bound-main"
-  | "probe-mate"
-  | "verify-loss"
-  | "winning-main";
-
-/** Hold every search, or only the searches of one phase. */
-export type MockHold = boolean | "main" | "probe" | "verify";
-
-export interface MockEngineOptions {
-  /** Engine id reported during `uci`. */
-  id?: string;
-  scenario?: MockScenario;
-  hold?: MockHold;
+export interface MockMove {
+  move: string;
+  cp: number;
+  wdl: [number, number, number];
+  pv?: string[];
+  /** Report `score mate N` instead of centipawns. */
+  mate?: number;
 }
 
-const FIXTURE = "4k3/8/8/3p4/4P3/8/2P5/4K3";
+/** WDL (permille) giving the requested expected score: (W + D/2) / 1000. */
+export function wdlFor(expected: number): [number, number, number] {
+  const draws = 400;
+  const wins = Math.round(expected * 1000 - draws / 2);
+  return [wins, draws, 1000 - wins - draws];
+}
 
-/** Deterministic UCI fixture. Not a chess engine; tests controller logic only. */
+export function mv(move: string, expected: number, cp = 0): MockMove {
+  return { move, cp, wdl: wdlFor(expected) };
+}
+
+export type SearchKind = "baseline" | "judge" | "verify" | "probe";
+
+export interface SearchContext {
+  kind: SearchKind;
+  depth: number;
+  searchmoves: string[];
+  multipv: number;
+  position: string;
+  goLine: string;
+}
+
+export interface MockEngineOptions {
+  id?: string;
+  /** True ordering of the root moves, best first. */
+  root: MockMove[];
+  /** The position command that belongs to `root` (anything else is treated as a probe). */
+  rootPosition: string;
+  /** Rewrite the lines of a search before they are reported. Return [] to report nothing. */
+  lines?: (ctx: SearchContext, lines: MockMove[]) => MockMove[];
+  /** Like `lines`, but applied per reported depth (to simulate partial iterations). */
+  linesAtDepth?: (ctx: SearchContext, depth: number, lines: MockMove[]) => MockMove[];
+  probeReplies?: (position: string) => MockMove[];
+  /** Withhold `bestmove` until `stop` arrives. */
+  hold?: (ctx: SearchContext) => boolean;
+  noWdl?: boolean;
+  bound?: boolean;
+  depths?: Partial<Record<SearchKind, number>>;
+  /** Moves a plain `go` (passthrough, MultiPV 1) returns; defaults to root[0]. */
+  passthroughMove?: string;
+}
+
+const DEFAULT_DEPTHS: Record<SearchKind, number> = { baseline: 8, judge: 8, verify: 9, probe: 6 };
+
 export class MockEngine implements EnginePort {
-  onLine: ((line: string) => void) | null = null;
-  readonly received: string[] = [];
-
-  private readonly id: string;
-  private readonly scenario: MockScenario;
-  private readonly hold: MockHold;
-  private readonly outbox: string[] = [];
-  private scheduled = false;
-  private searching = false;
-  private pendingBestmove: string | null = null;
-  private showWdl = false;
+  sent: string[] = [];
+  searches: SearchContext[] = [];
+  private sink: ((line: string) => void) | null = null;
+  private out: string[] = [];
+  private pumping = false;
   private multipv = 1;
   private position = "position startpos";
+  private held: { best: string } | null = null;
 
-  constructor(options: MockEngineOptions = {}) {
-    this.id = options.id ?? "Stockfish 19 Mock";
-    this.scenario = options.scenario ?? "normal";
-    this.hold = options.hold ?? false;
+  constructor(readonly options: MockEngineOptions) {}
+
+  connect(sink: (line: string) => void): void {
+    this.sink = sink;
   }
 
   send(line: string): void {
-    this.received.push(line);
-    this.handle(line.trim());
+    this.sent.push(line);
+    this.handle(line);
+    this.pump();
+  }
+
+  private pump(): void {
+    if (this.pumping || this.sink === null) {
+      return;
+    }
+    this.pumping = true;
+    while (this.out.length > 0) {
+      const next = this.out.shift();
+      if (next !== undefined) {
+        this.sink(next);
+      }
+    }
+    this.pumping = false;
   }
 
   private emit(line: string): void {
-    this.outbox.push(line);
-    if (this.scheduled) {
-      return;
-    }
-    this.scheduled = true;
-    queueMicrotask(() => {
-      this.scheduled = false;
-      const lines = this.outbox.splice(0);
-      for (const line of lines) {
-        this.onLine?.(line);
-      }
-    });
-  }
-
-  private wdl(values: string): string {
-    return this.showWdl && this.scenario !== "no-wdl" ? ` wdl ${values}` : "";
+    this.out.push(line);
   }
 
   private handle(line: string): void {
-    const [command] = line.split(/\s+/);
-    if (command === "uci") {
-      this.emit(`id name ${this.id}`);
-      this.emit("option name Threads type spin default 1 min 1 max 1024");
-      this.emit("option name Hash type spin default 16 min 1 max 33554432");
-      this.emit("option name MultiPV type spin default 1 min 1 max 500");
-      this.emit("option name UCI_ShowWDL type check default false");
-      this.emit("uciok");
-      return;
-    }
-    if (command === "isready") {
-      this.emit("readyok");
-      return;
-    }
-    if (command === "setoption") {
-      this.handleSetoption(line);
-      return;
-    }
-    if (command === "position") {
-      this.position = line;
-      return;
-    }
-    if (command === "go") {
-      const phase = this.phaseOf(line);
-      this.searching = true;
-      if (this.shouldHold(phase)) {
-        this.emitReport(line, phase);
-        this.pendingBestmove = this.bestmoveFor(line, phase);
+    const tokens = line.trim().split(/\s+/);
+    switch (tokens[0]) {
+      case "uci":
+        this.emit(`id name ${this.options.id ?? "Stockfish 19"}`);
+        this.emit("option name Threads type spin default 1 min 1 max 1024");
+        this.emit("option name Hash type spin default 16 min 1 max 33554432");
+        this.emit("option name MultiPV type spin default 1 min 1 max 256");
+        this.emit("option name UCI_ShowWDL type check default false");
+        this.emit("uciok");
+        return;
+      case "isready":
+        this.emit("readyok");
+        return;
+      case "setoption": {
+        const nameIndex = tokens.indexOf("name");
+        const valueIndex = tokens.indexOf("value");
+        if (nameIndex >= 0 && valueIndex > nameIndex) {
+          const name = tokens.slice(nameIndex + 1, valueIndex).join(" ");
+          if (name === "MultiPV") {
+            this.multipv = Number(tokens[valueIndex + 1]);
+          }
+        }
         return;
       }
-      this.emitReport(line, phase);
-      this.emit(this.bestmoveFor(line, phase));
-      this.searching = false;
-      return;
-    }
-    if (command === "stop") {
-      if (this.searching) {
-        this.searching = false;
-        if (this.pendingBestmove) {
-          this.emit(this.pendingBestmove);
-          this.pendingBestmove = null;
+      case "position":
+        this.position = line.trim();
+        return;
+      case "go":
+        this.go(line.trim());
+        return;
+      case "stop":
+        if (this.held) {
+          const best = this.held.best;
+          this.held = null;
+          this.emit(`bestmove ${best}`);
         }
-      }
-      return;
-    }
-    if (command === "quit") {
-      this.searching = false;
-      this.pendingBestmove = null;
+        return;
+      default:
+        return;
     }
   }
 
-  private handleSetoption(line: string): void {
-    const body = line.replace(/^setoption\s+name\s+/, "");
-    const [name, value = ""] = body.split(/\s+value\s+/, 2);
-    if (name === "MultiPV") {
-      const parsed = Number.parseInt(value, 10);
-      if (Number.isFinite(parsed)) {
-        this.multipv = parsed;
-      }
-    }
-    if (name === "UCI_ShowWDL" && value === "true") {
-      this.showWdl = true;
-    }
-  }
-
-  private phaseOf(goLine: string): "main" | "probe" | "verify" {
-    if (goLine.includes(" searchmoves ")) {
-      return "verify";
-    }
-    const tokens = this.position.split(/\s+/);
-    if (tokens[3] === "b" && (tokens[2] ?? "").includes("4k3/8/8/3p4")) {
+  private kindOf(goLine: string, searchmoves: string[]): SearchKind {
+    if (this.position !== this.options.rootPosition) {
       return "probe";
     }
-    return "main";
+    if (searchmoves.length === 0) {
+      return "baseline";
+    }
+    return searchmoves.length === 2 && this.multipv === 2 ? "verify" : "judge";
   }
 
-  private shouldHold(phase: "main" | "probe" | "verify"): boolean {
-    return this.hold === true || this.hold === phase;
+  private go(goLine: string): void {
+    const tokens = goLine.split(/\s+/);
+    const smIndex = tokens.indexOf("searchmoves");
+    const searchmoves = smIndex >= 0 ? tokens.slice(smIndex + 1) : [];
+    const kind = this.kindOf(goLine, searchmoves);
+    const depthIndex = tokens.indexOf("depth");
+    const depth =
+      depthIndex >= 0
+        ? Number(tokens[depthIndex + 1])
+        : (this.options.depths?.[kind] ?? DEFAULT_DEPTHS[kind]);
+    const ctx: SearchContext = {
+      kind,
+      depth,
+      searchmoves,
+      multipv: this.multipv,
+      position: this.position,
+      goLine,
+    };
+    this.searches.push(ctx);
+
+    let lines: MockMove[];
+    if (kind === "probe") {
+      lines = this.options.probeReplies
+        ? this.options.probeReplies(this.position)
+        : [mv("e7e5", 0.5), mv("d7d5", 0.46), mv("g8f6", 0.3)];
+    } else {
+      lines = this.options.root.filter(
+        (item) => searchmoves.length === 0 || searchmoves.includes(item.move),
+      );
+      lines = [...lines].sort((a, b) => b.wdl[0] + b.wdl[1] / 2 - (a.wdl[0] + a.wdl[1] / 2));
+    }
+    if (this.options.lines) {
+      lines = this.options.lines(ctx, lines);
+    }
+    lines = lines.slice(0, Math.max(1, this.multipv));
+
+    for (const d of [Math.max(1, depth - 1), depth]) {
+      const shown = this.options.linesAtDepth ? this.options.linesAtDepth(ctx, d, lines) : lines;
+      shown.forEach((line, index) => this.emit(this.infoLine(d, index + 1, line)));
+    }
+    const isPlain = searchmoves.length === 0 && this.multipv === 1 && kind === "baseline";
+    const best =
+      isPlain && this.options.passthroughMove !== undefined
+        ? this.options.passthroughMove
+        : lines.length > 0
+          ? lines[0].move
+          : "(none)";
+    if (this.options.hold && this.options.hold(ctx)) {
+      this.held = { best };
+      return;
+    }
+    this.emit(`bestmove ${best}`);
   }
 
-  private emitReport(goLine: string, phase: "main" | "probe" | "verify"): void {
-    if (phase === "verify") {
-      this.emitVerify(goLine);
-      return;
+  private infoLine(depth: number, multipv: number, line: MockMove): string {
+    const parts = [`info depth ${depth} seldepth ${depth} multipv ${multipv}`];
+    if (line.mate !== undefined) {
+      parts.push(`score mate ${line.mate}`);
+    } else {
+      parts.push(`score cp ${line.cp}`);
     }
-    if (phase === "probe") {
-      this.emitProbe();
-      return;
+    if (this.options.bound && multipv === 1) {
+      parts.push("lowerbound");
     }
-    this.emitMain();
+    if (!this.options.noWdl) {
+      const wdl = line.mate !== undefined ? ([1000, 0, 0] as const) : line.wdl;
+      parts.push(`wdl ${wdl[0]} ${wdl[1]} ${wdl[2]}`);
+    }
+    parts.push("nodes 12345 nps 123456 time 100");
+    parts.push(`pv ${(line.pv ?? [line.move, "e7e5", "g1f3"]).join(" ")}`);
+    return parts.join(" ");
   }
-
-  private emitMain(): void {
-    if (this.multipv > 1 && this.position.includes(FIXTURE)) {
-      let baselineScore = 12;
-      let baselineWdl = "500 300 200";
-      let candidateScore = 11;
-      let candidateWdl = "500 300 200";
-      if (this.scenario === "winning-main") {
-        baselineScore = 950;
-        baselineWdl = "950 40 10";
-        candidateScore = 950;
-        candidateWdl = "950 40 10";
-      } else if (this.scenario === "saturated-main") {
-        baselineScore = 540;
-        baselineWdl = "1000 0 0";
-        candidateScore = 400;
-        candidateWdl = "1000 0 0";
-      }
-      const bound = this.scenario === "bound-main" ? " upperbound" : "";
-      this.emit(
-        `info depth 4 seldepth 4 multipv 1 score cp ${baselineScore}${bound}` +
-          `${this.wdl(baselineWdl)} pv e1d2 e8e7`,
-      );
-      if (this.scenario === "mate-main") {
-        this.emit("info depth 4 seldepth 4 multipv 2 score mate 5 pv c2c4 e8e7");
-      } else {
-        const depth = this.scenario === "depth-mismatch" ? 3 : 4;
-        this.emit(
-          `info depth ${depth} seldepth ${depth} multipv 2 score cp ${candidateScore}` +
-            `${this.wdl(candidateWdl)} pv c2c4 e8e7`,
-        );
-      }
-      return;
-    }
-    if (this.multipv > 1) {
-      this.emit(
-        `info depth 4 seldepth 4 multipv 1 score cp 20${this.wdl("510 300 190")} pv e2e4 e7e5`,
-      );
-      this.emit(
-        `info depth 4 seldepth 4 multipv 2 score cp 18${this.wdl("505 300 195")} pv d2d4 d7d5`,
-      );
-      return;
-    }
-    this.emit(
-      `info depth 4 seldepth 4 score cp 20${this.wdl("510 300 190")} pv e2e4 e7e5`,
-    );
-  }
-
-  private emitVerify(goLine: string): void {
-    const tail = goLine.split("searchmoves")[1] ?? "";
-    const moves = tail.trim().split(/\s+/).filter(Boolean);
-    const depth = goLine.includes("depth") ? 6 : 4;
-    moves.slice(0, 2).forEach((move, index) => {
-      const rank = index + 1;
-      let score = 19;
-      let wdl = "500 300 200";
-      if (this.scenario === "saturated-verify") {
-        score = rank === 1 ? 540 : 400;
-        wdl = "1000 0 0";
-      } else if (this.scenario === "verify-loss" && rank === 2) {
-        score = 490;
-        wdl = "490 300 210";
-      } else if (rank === 1) {
-        score = 20;
-      } else if (this.scenario === "reject-verify") {
-        score = 19;
-        wdl = "450 300 250";
-      }
-      this.emit(
-        `info depth ${depth} seldepth ${depth} multipv ${rank} score cp ${score}` +
-          `${this.wdl(wdl)} pv ${move} e8e7`,
-      );
-    });
-  }
-
-  private emitProbe(): void {
-    const placement = this.position.split(/\s+/)[2] ?? "";
-    if (this.scenario === "probe-mate" && placement.includes("2PK4")) {
-      this.emit("info depth 3 seldepth 3 multipv 1 score mate 2 pv e8e7");
-      return;
-    }
-    if (placement.includes("2PK4")) {
-      this.emit(
-        `info depth 3 seldepth 3 multipv 1 score cp 10${this.wdl("350 300 350")} pv e8e7`,
-      );
-      this.emit(
-        `info depth 3 seldepth 3 multipv 2 score cp 9${this.wdl("340 300 360")} pv e8e8`,
-      );
-      this.emit(
-        `info depth 3 seldepth 3 multipv 3 score cp 8${this.wdl("330 300 370")} pv e8d8`,
-      );
-      return;
-    }
-    if (placement.includes("2P1P3")) {
-      this.emit(
-        `info depth 3 seldepth 3 multipv 1 score cp 15${this.wdl("400 300 300")} pv e8e7`,
-      );
-      this.emit(
-        `info depth 3 seldepth 3 multipv 2 score cp 5${this.wdl("250 300 450")} pv e8d8`,
-      );
-      this.emit(
-        `info depth 3 seldepth 3 multipv 3 score cp 1${this.wdl("150 300 550")} pv e8f8`,
-      );
-      return;
-    }
-    this.emit(
-      `info depth 3 seldepth 3 multipv 1 score cp 30${this.wdl("450 300 250")} pv e8e7`,
-    );
-  }
-
-  private bestmoveFor(goLine: string, phase: "main" | "probe" | "verify"): string {
-    if (phase === "verify") {
-      const moves = (goLine.split("searchmoves")[1] ?? "").trim().split(/\s+/);
-      return `bestmove ${moves[0] ?? "e1d2"}`;
-    }
-    if (phase === "probe") {
-      return "bestmove e8e7";
-    }
-    if (this.multipv > 1 && this.position.includes(FIXTURE)) {
-      return "bestmove e1d2";
-    }
-    return "bestmove e2e4";
-  }
-}
-
-/** Let the mock's queued microtask output drain. */
-export function tick(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
 }

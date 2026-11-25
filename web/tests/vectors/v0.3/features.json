@@ -1,0 +1,490 @@
+{
+  "cases": [
+    {
+      "features": {
+        "c2c3": {
+          "F_C": 0,
+          "F_F": 0,
+          "F_I": 0,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 1,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "c2c4": {
+          "F_C": 0,
+          "F_F": -0.25,
+          "F_I": 0,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0.25,
+          "T": 1,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "e1d2": {
+          "F_C": 0.1667,
+          "F_F": 0,
+          "F_I": 0,
+          "F_K": 0.25,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 1,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "e4d5": {
+          "F_C": 0,
+          "F_F": -0.25,
+          "F_I": 0,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0.1111,
+          "F_T": -0.25,
+          "T": 1,
+          "capture": true,
+          "givesCheck": false,
+          "see": 100
+        }
+      },
+      "fen": "4k3/8/8/3p4/4P3/8/2P5/4K3 w - - 0 1"
+    },
+    {
+      "features": {
+        "e1d2": {
+          "F_C": 0,
+          "F_F": 0,
+          "F_I": 0,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "f3b7": {
+          "F_C": -0.1667,
+          "F_F": -0.25,
+          "F_I": 0.5,
+          "F_K": -0.25,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "f3f7": {
+          "F_C": -0.3333,
+          "F_F": -0.0833,
+          "F_I": 0.3333,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 1,
+          "F_T": -0.25,
+          "T": 0,
+          "capture": true,
+          "givesCheck": true,
+          "see": -800
+        }
+      },
+      "fen": "4k3/5p2/8/8/8/5Q2/5PPP/4K3 w - - 0 1"
+    },
+    {
+      "features": {
+        "e1d2": {
+          "F_C": 0,
+          "F_F": 0,
+          "F_I": -0.1667,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0.2,
+          "F_S": 0,
+          "F_T": -0.25,
+          "T": 1,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        }
+      },
+      "fen": "k3r3/8/8/8/8/8/4N3/4K3 w - - 0 1"
+    },
+    {
+      "features": {
+        "d4e6": {
+          "F_C": 0.1667,
+          "F_F": -0.1667,
+          "F_I": 0.3333,
+          "F_K": -0.25,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "d4f5": {
+          "F_C": 0.1667,
+          "F_F": -0.0833,
+          "F_I": 0.3333,
+          "F_K": -0.25,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "e1d2": {
+          "F_C": 0,
+          "F_F": 0,
+          "F_I": 0,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        }
+      },
+      "fen": "4k3/8/8/8/3N4/8/8/4K3 w - - 0 1"
+    },
+    {
+      "features": {
+        "c2c3": {
+          "F_C": 0,
+          "F_F": 0,
+          "F_I": 0,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "c2c4": {
+          "F_C": 0,
+          "F_F": -0.25,
+          "F_I": 0,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0.25,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "e1d2": {
+          "F_C": 0.1667,
+          "F_F": 0,
+          "F_I": 0,
+          "F_K": 0.25,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        }
+      },
+      "fen": "4k3/8/8/3p4/8/8/2P5/4K3 w - - 0 1"
+    },
+    {
+      "features": {
+        "a7a8n": {
+          "F_C": 0,
+          "F_F": 0.1667,
+          "F_I": 0.1667,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "a7a8q": {
+          "F_C": 0.1667,
+          "F_F": 1,
+          "F_I": 1,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": true,
+          "see": 0
+        },
+        "e1d2": {
+          "F_C": 0,
+          "F_F": 0,
+          "F_I": 0,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        }
+      },
+      "fen": "4k3/P7/8/8/8/8/8/4K3 w - - 0 1"
+    },
+    {
+      "features": {
+        "d2d4": {
+          "F_C": 0,
+          "F_F": 0.5833,
+          "F_I": 0,
+          "F_K": -0.25,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0.8,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "e2e4": {
+          "F_C": -0.1667,
+          "F_F": 0.75,
+          "F_I": 0,
+          "F_K": -0.25,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0.8,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "g1f3": {
+          "F_C": 0,
+          "F_F": 0.3333,
+          "F_I": 0,
+          "F_K": 0.25,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0.2,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        }
+      },
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    },
+    {
+      "features": {
+        "a1a8": {
+          "F_C": 0.1667,
+          "F_F": 0.4167,
+          "F_I": 0.8333,
+          "F_K": -0.25,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0.2,
+          "F_S": 0.5556,
+          "F_T": -0.25,
+          "T": 2,
+          "capture": true,
+          "givesCheck": true,
+          "see": 500
+        },
+        "e1c1": {
+          "F_C": 0.8333,
+          "F_F": 0.4167,
+          "F_I": 0.1667,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0.4,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 2,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "e1g1": {
+          "F_C": 0.8333,
+          "F_F": 0.5833,
+          "F_I": 0.1667,
+          "F_K": -0.25,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0.4,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 2,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        }
+      },
+      "fen": "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"
+    },
+    {
+      "features": {
+        "e1d2": {
+          "F_C": 0,
+          "F_F": 0,
+          "F_I": 0,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "e2e3": {
+          "F_C": -0.1667,
+          "F_F": 0,
+          "F_I": 0,
+          "F_K": -0.25,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "e2e4": {
+          "F_C": -0.1667,
+          "F_F": 0,
+          "F_I": 0,
+          "F_K": -0.25,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        }
+      },
+      "fen": "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"
+    },
+    {
+      "features": {
+        "e1d2": {
+          "F_C": 0,
+          "F_F": 0,
+          "F_I": 0,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        },
+        "e5d6": {
+          "F_C": 0.1667,
+          "F_F": 0,
+          "F_I": 0,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0.1111,
+          "F_T": 0,
+          "T": 0,
+          "capture": true,
+          "givesCheck": false,
+          "see": 100
+        },
+        "e5e6": {
+          "F_C": 0.1667,
+          "F_F": 0,
+          "F_I": 0,
+          "F_K": 0,
+          "F_N": 0,
+          "F_P": 0,
+          "F_R": 0,
+          "F_S": 0,
+          "F_T": 0,
+          "T": 0,
+          "capture": false,
+          "givesCheck": false,
+          "see": 0
+        }
+      },
+      "fen": "4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1"
+    }
+  ],
+  "generated": "kairos-core 0.3.0 (Rust/WASM) on 2026-11-25"
+}
